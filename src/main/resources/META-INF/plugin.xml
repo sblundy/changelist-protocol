@@ -1,18 +1,18 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.github.sblundy.changelistprotocol</id>
-    <name>changelist-protocol Template</name>
+    <name>Changelists Automated</name>
     <vendor>sblundy</vendor>
+    <category>Productivity</category>
+    <category>OS Integration</category>
+    <category>Issue Trackers</category>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.vcs</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.sblundy.changelistprotocol.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
+        <jbProtocolCommand implementation="com.github.sblundy.changelistprotocol.ChangelistJBProtocol"/>
     </extensions>
-
-    <applicationListeners>
-        <listener class="com.github.sblundy.changelistprotocol.listeners.MyApplicationActivationListener" topic="com.intellij.openapi.application.ApplicationActivationListener"/>
-    </applicationListeners>
 </idea-plugin>
