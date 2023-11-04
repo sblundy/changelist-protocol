@@ -14,5 +14,6 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <jbProtocolCommand implementation="com.github.sblundy.changelistprotocol.ChangelistJBProtocol"/>
+        <httpRequestHandler implementation="com.github.sblundy.changelistprotocol.ChangelistRestService"/>
     </extensions>
 </idea-plugin>

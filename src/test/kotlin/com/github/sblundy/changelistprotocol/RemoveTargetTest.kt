@@ -1,9 +1,9 @@
 package com.github.sblundy.changelistprotocol
 
-import org.junit.Before
 import org.junit.Test
 
 class RemoveTargetTest : ChangelistJBProtocolTargetTestCase("remove") {
+    @TestChangelist
     @Test
     fun changelistIsRemoved() = targetTest("name" to testChangeListName) { result ->
         assertNull(result)
@@ -12,16 +12,12 @@ class RemoveTargetTest : ChangelistJBProtocolTargetTestCase("remove") {
         assertTestChangelistNotExists()
     }
 
+    @TestChangelist
     @Test
-    fun errorOnNonExistentChangelist() = targetTest("name" to "not-"+testChangeListName) { result ->
+    fun errorOnNonExistentChangelist() = targetTest("name" to "not-$testChangeListName") { result ->
         assertNotNull(result)
 
         assertNumChangelist(2)
         assertTestChangelistExists()
-    }
-
-    @Before
-    fun createTestChangelist() {
-        clm.addChangeList(getTestName(true), null)
     }
 }

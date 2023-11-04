@@ -11,7 +11,7 @@ class AddTargetTest : ChangelistJBProtocolTargetTestCase("add") {
         assertNumChangelist(2)
         assertTestChangelistExists()
         assertTestChangelistIsDefault()
-        assertTestChangelistComment(null)
+        assertTestChangelistComment("")
     }
 
     @Test
