@@ -98,20 +98,27 @@ class ChangelistRestService : RestService() {
 
     private suspend fun executePOST(project: String, urlDecoder: QueryStringDecoder, request: FullHttpRequest, context: ChannelHandlerContext): String? =
             when (urlDecoder.pathSegment(3)) {
-                null -> WriteTarget.AddTarget.execute(gson.fromJson<AddParams>(createJsonReader(request), AddParams::class.java).apply { this.project = project })
+                null -> WriteTarget.AddTarget.execute(gson.fromJson<AddParams>(createJsonReader(request), AddParams::class.java).apply {
+                    this.project = project
+                }) ?: sendCreated(context)
                 else -> sendMethodNotAllowed(context)
             }
 
     private suspend fun executePUT(project: String, urlDecoder: QueryStringDecoder, request: FullHttpRequest, context: ChannelHandlerContext): String? =
             when (val target = urlDecoder.pathSegment(3)) {
                 null -> sendMethodNotAllowed(context)
-                else -> WriteTarget.EditTarget.execute(gson.fromJson<EditParams>(createJsonReader(request), EditParams::class.java).apply { this.project = project;name = target })
+                else -> WriteTarget.EditTarget.execute(gson.fromJson<EditParams>(createJsonReader(request), EditParams::class.java).apply {
+                    this.project = project
+                    this.name = target
+                }) ?: sendNoContent(context)
             }
 
     private suspend fun executeDELETE(project: String, urlDecoder: QueryStringDecoder, context: ChannelHandlerContext): String? =
             when (val target = urlDecoder.pathSegment(3)) {
                 null -> sendMethodNotAllowed(context)
-                else -> WriteTarget.RemoveTarget.execute(ChangelistParams(project, target))
+                else -> {
+                    WriteTarget.RemoveTarget.execute(ChangelistParams(project, target)) ?: sendNoContent(context)
+                }
             }
 
     private fun QueryStringDecoder.pathSegment(idx: Int): String? = path().split('/').filter { it.isNotEmpty() }.elementAtOrNull(idx)
@@ -120,6 +127,16 @@ class ChangelistRestService : RestService() {
 
     private fun sendMethodNotAllowed(context: ChannelHandlerContext): String? {
         sendStatus(HttpResponseStatus.METHOD_NOT_ALLOWED, false, context.channel())
+        return null
+    }
+
+    private fun sendNoContent(context: ChannelHandlerContext): String? {
+        sendStatus(HttpResponseStatus.NO_CONTENT, false, context.channel())
+        return null
+    }
+
+    private fun sendCreated(context: ChannelHandlerContext): String? {
+        sendStatus(HttpResponseStatus.CREATED, false, context.channel())
         return null
     }
 }
