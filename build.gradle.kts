@@ -89,6 +89,9 @@ tasks {
                 }
                 subList(indexOf(start) + 1, indexOf(end)).joinToString("\n").let(::markdownToHTML)
             }
+        }.map {
+            // HACK: Keeping the code in the description from being over-escaped
+            it.replace("&quot;", "\"").replace("&amp;", "&")
         }
 
         val changelog = project.changelog // local variable for configuration cache compatibility

@@ -1,4 +1,4 @@
-# changelist-protocol
+# Changelists Automated
 
 ![Build](https://github.com/sblundy/changelist-protocol/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/PLUGIN_ID.svg)](https://plugins.jetbrains.com/plugin/PLUGIN_ID)
@@ -17,11 +17,32 @@
 - [ ] Click the <kbd>Watch</kbd> button on the top of the [IntelliJ Platform Plugin Template][template] to be notified about releases containing new features and fixes.
 
 <!-- Plugin description -->
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
+Manipulate IDE changelists externally via the [Built-In Server](https://blog.jetbrains.com/webide/2013/03/built-in-server-in-webstorm-6/) and [`jetbrains://` custom URL scheme](https://youtrack.jetbrains.com/issue/TBX-3965/Documentation-for-Toolbox-Reference-URL-Scheme)<sup>*</sup>.
+With it you can integrate with local task trackers, scripts, and processes.
 
-This specific section is a source for the [plugin.xml](/src/main/resources/META-INF/plugin.xml) file which will be extracted by the [Gradle](/build.gradle.kts) during the build process.
+<sup>*</sup> `jetbrains://` custom URL scheme requires Jetbrains Toolbox. Also, it may not be available on all platforms
 
-To keep everything working, do not remove `<!-- ... -->` sections. 
+### Features
+
+1. List current Changelists: 
+   ```shell
+   curl http://localhost:63342/api/changelist/changelist-protocol/
+   ```
+2. Add Changelist: 
+   ```shell
+   open jetbrains://idea/changelist/add?project=changelist-protocol&name=New%20Changelist
+   curl --json '{"name":"New Changelist","comment":"New comment"}' http://localhost:63342/api/changelist/changelist-protocol
+   ```
+3. Update a Changelist: 
+   ```shell
+   open jetbrains://idea/changelist/update?project=changelist-protocol&name=New%20Changelist&comment=New%20comment
+   curl -X PUT --json '{"comment":"New comment"}' http://localhost:63342/api/changelist/changelist-protocol/New%20Changelist
+   ```
+4. Delete a Changelist: 
+   ```shell
+   open jetbrains://idea/changelist/remove?project=changelist-protocol&name=New%20Changelist
+   curl -X DELETE http://localhost:63342/api/changelist/changelist-protocol/Actual%20Changelist
+   ```
 <!-- Plugin description end -->
 
 ## Installation
