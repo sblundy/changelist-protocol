@@ -7,48 +7,6 @@ import io.netty.handler.codec.http.*
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.ide.RestService
 
-/**
- * @api {get} /changelist/:project List project changelists
- * @apiParam {String} project Name of project
- * @apiSuccess {Object[]} changelists
- * @apiSuccess {String} changelists.name
- * @apiSuccess {String} changelists.comment
- * @apiSuccess {Boolean} changelists.active
- * @apiSuccess {Boolean} changelists.readOnly
- */
-
-/**
- * @api {post} /changelist/:project Add a new changelist to project
- * @apiParam {String} project Name of project
- * @apiBody {String} name
- * @apiBody {String} [comment]
- * @apiBody {Boolean} [active]=true
- */
-
-/**
- * @api {get} /changelist/:project/:name Get project changelist
- * @apiParam {String} project Name of project
- * @apiParam {String} name Changelist name
- * @apiSuccess {String} name
- * @apiSuccess {String} comment
- * @apiSuccess {Boolean} active
- * @apiSuccess {Boolean} readOnly
- */
-
-/**
- * @api {put} /changelist/:project/:name Update changelist to project
- * @apiParam {String} project Name of project
- * @apiParam {String} name Changelist name
- * @apiBody {String} [name] New name for the changelist
- * @apiBody {String} [comment]
- * @apiBody {Boolean} [active]
- */
-
-/**
- * @api {delete} /changelist/:project/:name Delete changelist from project
- * @apiParam {String} project Name of project
- * @apiParam {String} name Changelist name
- */
 class ChangelistRestService : RestService() {
     private val logger = logger<ChangelistRestService>()
 
