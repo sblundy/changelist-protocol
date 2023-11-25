@@ -2,7 +2,7 @@
 <idea-plugin>
     <id>com.github.sblundy.changelistprotocol</id>
     <name>Changelists Automated</name>
-    <vendor>sblundy</vendor>
+    <vendor>Steven Blundy</vendor>
     <category>Productivity</category>
     <category>OS Integration</category>
     <category>Issue Trackers</category>
