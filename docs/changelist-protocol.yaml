@@ -30,7 +30,7 @@ info:
     It's under "Built-in Server". 
 
     See [Debugger > Built-in Server](https://www.jetbrains.com/help/idea/2023.2/settings-debugger.html#24aabda8) for more details
-  version: 0.0.1
+  version: 0.1.0
 servers:
   - url: 'http://localhost:{port}/api'
     variables:
