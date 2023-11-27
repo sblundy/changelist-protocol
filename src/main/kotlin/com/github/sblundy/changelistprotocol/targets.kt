@@ -10,13 +10,13 @@ import com.intellij.openapi.vcs.changes.ChangeListManagerEx
 import com.intellij.openapi.vcs.changes.LocalChangeList
 
 internal sealed class ReadTarget<P : Params> {
-    suspend fun execute(parameters: P, write: JsonWriter): String? =
+    suspend fun execute(parameters: P, write: JsonWriter): TargetResult =
             withProject(parameters) { project -> doExecute(project, parameters, write) }
 
-    abstract fun doExecute(project: Project, parameters: P, write: JsonWriter): String?
+    abstract fun doExecute(project: Project, parameters: P, write: JsonWriter): TargetResult
 
     data object ListChangelists : ReadTarget<Params>() {
-        override fun doExecute(project: Project, parameters: Params, write: JsonWriter): String? {
+        override fun doExecute(project: Project, parameters: Params, write: JsonWriter): TargetResult {
             val clmgr = project.getChangelistManager()
             write.beginObject()
             write.name("changelists")
@@ -26,39 +26,39 @@ internal sealed class ReadTarget<P : Params> {
             }
             write.endArray()
             write.endObject()
-            return null
+            return TargetResult.Success
         }
     }
 
     data object GetChangelist : ReadTarget<ChangelistParams>() {
-        override fun doExecute(project: Project, parameters: ChangelistParams, write: JsonWriter): String? =
+        override fun doExecute(project: Project, parameters: ChangelistParams, write: JsonWriter): TargetResult =
                 parameters.withChangelist(project) { _, _, list ->
                     list.write(write)
-                    null
+                    TargetResult.Success
                 }
     }
 }
 
 internal sealed class WriteTarget<P : ChangelistParams> {
-    suspend fun execute(parameters: P): String? =
+    suspend fun execute(parameters: P): TargetResult =
             withProject(parameters) { project -> doExecute(project, parameters) }
 
-    abstract fun doExecute(project: Project, parameters: P): String?
+    abstract fun doExecute(project: Project, parameters: P): TargetResult
 
     data object AddTarget : WriteTarget<AddParams>() {
-        override fun doExecute(project: Project, parameters: AddParams): String? =
+        override fun doExecute(project: Project, parameters: AddParams): TargetResult =
                 parameters.withName { name ->
                     val clmgr = project.getChangelistManager()
                     val list = clmgr.addChangeList(name, parameters.comment)
                     if (parameters.activate != false) {
                         clmgr.defaultChangeList = list
                     }
-                    null
+                    TargetResult.Success
                 }
     }
 
     data object ActivateTarget : WriteTarget<ActivateParams>() {
-        override fun doExecute(project: Project, parameters: ActivateParams): String? {
+        override fun doExecute(project: Project, parameters: ActivateParams): TargetResult {
             return if (parameters.default == true) {
                 LocalChangeList.getDefaultName()
             } else {
@@ -67,14 +67,14 @@ internal sealed class WriteTarget<P : ChangelistParams> {
                 val clmgr = project.getChangelistManagerEx()
                 clmgr.findChangeList(name)?.let { list ->
                     clmgr.setDefaultChangeList(list, true)
-                    return null
-                } ?: MyBundle.message("jb.protocol.changelist.not.found", name)
-            } ?: IdeBundle.message("jb.protocol.parameter.missing", "name")
+                    return TargetResult.Success
+                } ?: TargetResult.ChangelistNotFound(name)
+            } ?: TargetResult.MissingParameter("name")
         }
     }
 
     data object EditTarget : WriteTarget<EditParams>() {
-        override fun doExecute(project: Project, parameters: EditParams): String? =
+        override fun doExecute(project: Project, parameters: EditParams): TargetResult =
                 parameters.withChangelist(project) { name, clmgr, list ->
                     if (parameters.activate != false) {
                         clmgr.setDefaultChangeList(list, true)
@@ -85,28 +85,28 @@ internal sealed class WriteTarget<P : ChangelistParams> {
                     parameters.newName?.let {
                         clmgr.editName(name, it)
                     }
-                    null
+                    TargetResult.Success
                 }
     }
 
     data object RemoveTarget : WriteTarget<ChangelistParams>() {
-        override fun doExecute(project: Project, parameters: ChangelistParams): String? =
+        override fun doExecute(project: Project, parameters: ChangelistParams): TargetResult =
                 parameters.withChangelist(project) { _, clmgr, list ->
                     clmgr.removeChangeList(list)
-                    return@withChangelist null
+                    return@withChangelist TargetResult.Success
                 }
     }
 }
 
-private suspend fun withProject(parameters: Params, doExecute: (project: Project) -> String?): String? {
+private suspend fun withProject(parameters: Params, doExecute: (project: Project) -> TargetResult): TargetResult {
     val project = when (val result = openProject(mapOf("project" to parameters.project))) {
         is ProtocolOpenProjectResult.Success -> result.project
-        is ProtocolOpenProjectResult.Error -> return result.message
+        is ProtocolOpenProjectResult.Error -> return TargetResult.ProjectNotFound(parameters.project, result.message)
     }
 
     val clm = project.getChangelistManager()
     if (!clm.areChangeListsEnabled()) {
-        return MyBundle.message("jb.protocol.changelist.not.enabled")
+        return TargetResult.ChangelistNotEnabled
     }
 
     return doExecute(project)
@@ -134,15 +134,15 @@ internal open class ChangelistParams(parameters: Map<String, String?>) : Params(
 
     var name: String? = parameters["name"]
 
-    fun withName(f: (name: String) -> String?): String? =
-            name?.let { name -> return f(name) } ?: IdeBundle.message("jb.protocol.parameter.missing", "name")
+    fun withName(f: (name: String) -> TargetResult): TargetResult =
+            name?.let { name -> return f(name) } ?: TargetResult.MissingParameter("name")
 
-    fun withChangelist(project: Project, f: (name: String, clmgr: ChangeListManagerEx, list: LocalChangeList) -> String?): String? =
+    fun withChangelist(project: Project, f: (name: String, clmgr: ChangeListManagerEx, list: LocalChangeList) -> TargetResult): TargetResult =
             withName { name ->
                 val clmgr = project.getChangelistManagerEx()
                 clmgr.findChangeList(name)?.let { list ->
                     return@withName f(name, clmgr, list)
-                } ?: MyBundle.message("jb.protocol.changelist.not.found", name)
+                } ?: TargetResult.ChangelistNotFound(name)
             }
 }
 
@@ -163,3 +163,24 @@ internal fun Map<String, String?>.withName(name: String): Map<String, String?> =
 internal fun Map<String, String?>.withProject(name: String): Map<String, String?> = plus("project" to name)
 private fun Project.getChangelistManager(): ChangeListManager = ChangeListManager.getInstance(this)
 private fun Project.getChangelistManagerEx(): ChangeListManagerEx = ChangeListManagerEx.getInstanceEx(this)
+
+internal sealed interface TargetResult {
+    fun getOrNull(): String?
+    data object Success: TargetResult {
+        override fun getOrNull(): String? = null
+    }
+
+    data object ChangelistNotEnabled: TargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.not.enabled")
+    }
+
+    data class ProjectNotFound(val name: String?, val message: String): TargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.project.not.found", name?:"null", message)
+    }
+    data class ChangelistNotFound(val name: String): TargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.not.found", name)
+    }
+    data class MissingParameter(val param: String): TargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.parameter.required", param)
+    }
+}

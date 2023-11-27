@@ -69,6 +69,8 @@ paths:
                     }
                   ]
                 }
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
         404:
           "$ref": "#/components/responses/projectNotFound"
 
@@ -117,8 +119,11 @@ paths:
               parameters:
                 project: $request.path.project
                 name: $request.body#/name
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
         404:
           "$ref": "#/components/responses/projectNotFound"
+
 
   "/changelist/{project}/{name}":
     get:
@@ -155,8 +160,10 @@ paths:
               parameters:
                 project: $request.path.project
                 name: $request.path.name
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
         404:
-          "$ref": "#/components/responses/projectNotFound"
+          "$ref": "#/components/responses/projectOrChangelistNotFound"
 
     put:
       operationId: updateChangelist
@@ -211,8 +218,10 @@ paths:
               parameters:
                 project: $request.path.project
                 name: $request.body#/name
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
         404:
-          "$ref": "#/components/responses/projectNotFound"
+          "$ref": "#/components/responses/projectOrChangelistNotFound"
 
     delete:
       operationId: deleteChangelist
@@ -223,8 +232,10 @@ paths:
       responses:
         204:
           description: Changelist has been deleted
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
         404:
-          "$ref": "#/components/responses/projectNotFound"
+          "$ref": "#/components/responses/projectOrChangelistNotFound"
 
 components:
   parameters:
@@ -265,5 +276,11 @@ components:
         - name
 
   responses:
+    changelistsNotEnabled:
+      description: Project does not have changelists enabled
     projectNotFound:
       description: Project not found
+    projectOrChangelistNotFound:
+      description: Changelist not found in project
+    requireParameterMissing:
+      description: Changelist not found in project

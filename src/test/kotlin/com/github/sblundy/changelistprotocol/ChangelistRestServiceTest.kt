@@ -5,6 +5,7 @@ import com.intellij.openapi.vcs.changes.LocalChangeList
 import io.netty.buffer.Unpooled
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http.*
+import io.netty.handler.codec.http.HttpResponseStatus.*
 import io.netty.handler.codec.string.StringDecoder
 import org.junit.Test
 
@@ -19,7 +20,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
         assertNull(result)
         val out = channel.readOutbound<FullHttpResponse>()
 
-        assertEquals(HttpResponseStatus.OK, out.status())
+        assertEquals(OK, out.status())
         val payload = JsonParser.parseString(out.content().toString(StandardCharsets.UTF_8))
         val changelists = payload.asJsonObject.get("changelists")
         assertEquals(2, changelists.asJsonArray.size())
@@ -35,7 +36,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
         assertNull(result)
         val out = channel.readOutbound<FullHttpResponse>()
 
-        assertEquals(HttpResponseStatus.OK, out.status())
+        assertEquals(OK, out.status())
         val payload = JsonParser.parseString(out.content().toString(StandardCharsets.UTF_8))
         assertEquals(testChangeListName, payload.asJsonObject.get("name").asString)
     }
@@ -43,9 +44,10 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     @TestChangelist(create = false)
     @Test
     fun add() {
-        val (_, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}","{\"name\":\"$testChangeListName\"}")
+        val (channel, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}","{\"name\":\"$testChangeListName\"}")
 
         assertNull(result)
+        assertStatus(CREATED, channel)
 
         assertNotNull(clm.findChangeList(testChangeListName))
     }
@@ -53,9 +55,10 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     @TestChangelist
     @Test
     fun activate() {
-        val (_, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName", "{\"activate\":true}")
+        val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName", "{\"activate\":true}")
 
         assertNull(result)
+        assertStatus(NO_CONTENT, channel)
 
         assertEquals(true, clm.findChangeList(testChangeListName)?.isDefault)
     }
@@ -63,9 +66,10 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     @TestChangelist
     @Test
     fun update() {
-        val (_, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName","{\"comment\":\"test\"}")
+        val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName","{\"comment\":\"test\"}")
 
         assertNull(result)
+        assertStatus(NO_CONTENT, channel)
 
         assertEquals("test", clm.findChangeList(testChangeListName)?.comment)
     }
@@ -73,11 +77,29 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     @TestChangelist
     @Test
     fun delete() {
-        val (_, result) = executeTest(HttpMethod.DELETE, "api/changelist/${project.name}/$testChangeListName")
+        val (channel, result) = executeTest(HttpMethod.DELETE, "api/changelist/${project.name}/$testChangeListName")
 
         assertNull(result)
+        assertStatus(NO_CONTENT, channel)
 
         assertNull(clm.findChangeList(testChangeListName))
+    }
+
+    @TestChangelist
+    @Test
+    fun projectNotFound() {
+        val (channel, result) = executeTest(HttpMethod.GET, "api/changelist/not-${project.name}/$testChangeListName")
+
+        assertNull(result)
+        assertStatus(NOT_FOUND, channel)
+    }
+
+    @Test
+    fun changelistNotFound() {
+        val (channel, result) = executeTest(HttpMethod.GET, "api/changelist/${project.name}/$testChangeListName")
+
+        assertNull(result)
+        assertStatus(NOT_FOUND, channel)
     }
 
     private fun executeTest(method: HttpMethod, uri: String): Pair<EmbeddedChannel, String?> {
@@ -94,5 +116,10 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
                 DefaultFullHttpRequest(HttpVersion.HTTP_1_1, method, uri, Unpooled.copiedBuffer(body, StandardCharsets.UTF_8)),
                 channel.pipeline().firstContext())
         return Pair(channel, result)
+    }
+
+    private fun assertStatus(status: HttpResponseStatus, channel:EmbeddedChannel) {
+        val out = channel.readOutbound<FullHttpResponse>()
+        assertEquals(status, out.status())
     }
 }

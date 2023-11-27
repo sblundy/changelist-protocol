@@ -27,10 +27,10 @@ class ChangelistJBProtocol : JBProtocolCommand("changelist") {
      */
     override suspend fun execute(target: String?, parameters: Map<String, String>, fragment: String?): String? = when (target) {
         null -> MyBundle.message("jb.protocol.changelist.target.required")
-        "add" -> WriteTarget.AddTarget.execute(AddParams(parameters))
-        "activate" -> WriteTarget.ActivateTarget.execute(ActivateParams(parameters))
-        "update" -> WriteTarget.EditTarget.execute(EditParams(parameters))
-        "remove" -> WriteTarget.RemoveTarget.execute(ChangelistParams(parameters))
+        "add" -> WriteTarget.AddTarget.execute(AddParams(parameters)).getOrNull()
+        "activate" -> WriteTarget.ActivateTarget.execute(ActivateParams(parameters)).getOrNull()
+        "update" -> WriteTarget.EditTarget.execute(EditParams(parameters)).getOrNull()
+        "remove" -> WriteTarget.RemoveTarget.execute(ChangelistParams(parameters)).getOrNull()
         else -> IdeBundle.message("jb.protocol.unknown.target", target)
     }
 }
