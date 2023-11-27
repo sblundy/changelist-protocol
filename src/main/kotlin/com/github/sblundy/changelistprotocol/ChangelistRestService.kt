@@ -1,5 +1,6 @@
 package com.github.sblundy.changelistprotocol
 
+import com.google.gson.stream.JsonWriter
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.util.io.BufferExposingByteArrayOutputStream
 import io.netty.buffer.Unpooled
@@ -8,6 +9,7 @@ import io.netty.handler.codec.http.*
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.ide.RestService
 
+@Suppress("NAME_SHADOWING")
 class ChangelistRestService : RestService() {
     private val logger = logger<ChangelistRestService>()
 
@@ -16,119 +18,90 @@ class ChangelistRestService : RestService() {
     override fun execute(urlDecoder: QueryStringDecoder, request: FullHttpRequest, context: ChannelHandlerContext): String? =
             try {
                 runBlocking {
-                    logger.debug("handling ${request.method()} ${request.uri()}")
-                    urlDecoder.pathSegment(2)?.let { project ->
-                        logger.debug("project=${project}")
-                        return@runBlocking when (request.method()) {
-                            HttpMethod.GET -> executeGET(project, urlDecoder, request, context)
-                            HttpMethod.POST -> executePOST(project, urlDecoder, request, context)
-                            HttpMethod.PUT -> executePUT(project, urlDecoder, request, context)
-                            HttpMethod.DELETE -> executeDELETE(project, urlDecoder, request, context)
-                            else -> sendMethodNotAllowed(context)
+                    val project = urlDecoder.pathSegment(2)
+                            ?: return@runBlocking sendEmptyResponse(HttpResponseStatus.NOT_FOUND, context)
+
+                    return@runBlocking when (val changelist = urlDecoder.pathSegment(3)) {
+                        null -> {
+                            logger.debug("handling ${request.method()} $project")
+                            when (request.method()) {
+                                HttpMethod.GET -> executeGET(project, request, context)
+                                HttpMethod.POST -> executePOST(project, request, context)
+                                else -> sendEmptyResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, context)
+                            }
                         }
-                    } ?: sendStatus(HttpResponseStatus.NOT_FOUND, false, context.channel());null
+                        else -> {
+                            logger.debug("handling ${request.method()} $project/$changelist")
+                            when (request.method()) {
+                                HttpMethod.GET -> executeGET(project, changelist, request, context)
+                                HttpMethod.PUT -> executePUT(project, changelist, request, context)
+                                HttpMethod.DELETE -> executeDELETE(project, changelist, request, context)
+                                else -> sendEmptyResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, context)
+                            }
+                        }
+                    }
                 }
             } catch (e: RuntimeException) {
                 logger.error("error handling ${request.uri()}", e)
+                sendStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR, false, context.channel())
                 throw e
             }
 
     override fun isMethodSupported(method: HttpMethod) = method == HttpMethod.POST || method == HttpMethod.GET || method == HttpMethod.PUT || method == HttpMethod.DELETE
 
-    private suspend fun executeGET(project: String, urlDecoder: QueryStringDecoder, request: FullHttpRequest, context: ChannelHandlerContext): String? {
+    private suspend fun executeGET(project: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
+            withJSONResponseWriter(request, context) { write -> ReadTarget.ListChangelists.execute(Params(project), write) }
+
+    private suspend fun executeGET(project: String, changelist: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
+            withJSONResponseWriter(request, context) { write -> ReadTarget.GetChangelist.execute(ChangelistParams(project, changelist), write)}
+
+    private suspend fun withJSONResponseWriter(request: FullHttpRequest, context: ChannelHandlerContext, f: suspend (JsonWriter) -> TargetResult): String? {
         val out = BufferExposingByteArrayOutputStream()
         val write = createJsonWriter(out)
 
-        val result = when (val target = urlDecoder.pathSegment(3)) {
-            null -> ReadTarget.ListChangelists.execute(Params(urlDecoder.flattenParameterValues().withProject(project)), write)
-            else -> ReadTarget.GetChangelist.execute(ChangelistParams(urlDecoder.flattenParameterValues().withProject(project).withName(target)), write)
-        }
+        val result = f(write)
 
-        return handleResult(request, result, context) {
+        return handleResult(request, result, context) { context ->
             write.flush()
-
-            if (logger.isDebugEnabled) {
-                logger.debug("out=$out")
-            }
-
-            send(out, request, it)
+            send(out, request, context)
             null
         }
     }
 
-    private suspend fun executePOST(project: String, urlDecoder: QueryStringDecoder, request: FullHttpRequest, context: ChannelHandlerContext): String? =
-            when (urlDecoder.pathSegment(3)) {
-                null -> handleResult(request, WriteTarget.AddTarget.execute(gson.fromJson<AddParams>(createJsonReader(request), AddParams::class.java).apply {
-                    this.project = project
-                }), context, ::sendCreated)
-                else -> sendMethodNotAllowed(context)
-            }
+    private suspend fun executePOST(project: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
+            handleResult(request, WriteTarget.AddTarget.execute(gson.fromJson<AddParams>(createJsonReader(request), AddParams::class.java).apply {
+                this.project = project
+            }), context) { sendEmptyResponse(HttpResponseStatus.CREATED, it) }
 
-    private suspend fun executePUT(project: String, urlDecoder: QueryStringDecoder, request: FullHttpRequest, context: ChannelHandlerContext): String? =
-            when (val target = urlDecoder.pathSegment(3)) {
-                null -> sendMethodNotAllowed(context)
-                else -> handleResult(request, WriteTarget.EditTarget.execute(gson.fromJson<EditParams>(createJsonReader(request), EditParams::class.java).apply {
-                    this.project = project
-                    this.name = target
-                }), context, ::sendNoContent)
-            }
+    private suspend fun executePUT(project: String, changelist: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
+            handleResult(request, WriteTarget.EditTarget.execute(gson.fromJson<EditParams>(createJsonReader(request), EditParams::class.java).apply {
+                this.project = project
+                this.name = changelist
+            }), context) { sendEmptyResponse(HttpResponseStatus.NO_CONTENT, it) }
 
-    private suspend fun executeDELETE(project: String, urlDecoder: QueryStringDecoder, request: FullHttpRequest, context: ChannelHandlerContext): String? =
-            when (val target = urlDecoder.pathSegment(3)) {
-                null -> sendMethodNotAllowed(context)
-                else -> handleResult(request, WriteTarget.RemoveTarget.execute(ChangelistParams(project, target)), context, ::sendNoContent)
-            }
+    private suspend fun executeDELETE(project: String, changelist: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
+            handleResult(request, WriteTarget.RemoveTarget.execute(ChangelistParams(project, changelist)), context) { sendEmptyResponse(HttpResponseStatus.NO_CONTENT, it) }
 
     private fun QueryStringDecoder.pathSegment(idx: Int): String? = path().split('/').filter { it.isNotEmpty() }.elementAtOrNull(idx)
 
-    private fun QueryStringDecoder.flattenParameterValues(): Map<String, String?> = parameters().entries.associate { (key, value) -> Pair(key, value.firstOrNull()) }
-
-    private fun sendMethodNotAllowed(context: ChannelHandlerContext): String? {
-        sendStatus(HttpResponseStatus.METHOD_NOT_ALLOWED, false, context.channel())
-        return null
-    }
-
-    private fun sendNoContent(context: ChannelHandlerContext): String? {
-        sendStatus(HttpResponseStatus.NO_CONTENT, false, context.channel())
-        return null
-    }
-
-    private fun sendCreated(context: ChannelHandlerContext): String? {
-        sendStatus(HttpResponseStatus.CREATED, false, context.channel())
-        return null
-    }
-
-    private fun sendProjectNotFound(request: HttpRequest, result:TargetResult.ProjectNotFound, context: ChannelHandlerContext): String? {
-        sendResponse(request, context, DefaultFullHttpResponse(request.protocolVersion(), HttpResponseStatus.NOT_FOUND,
-                Unpooled.wrappedBuffer(result.getOrNull().encodeToByteArray())))
-        return null
-    }
-
-    private fun sendChangelistNotFound(request: HttpRequest, result:TargetResult.ChangelistNotFound, context: ChannelHandlerContext): String? {
-        sendResponse(request, context, DefaultFullHttpResponse(request.protocolVersion(), HttpResponseStatus.NOT_FOUND,
-                Unpooled.wrappedBuffer(result.getOrNull().encodeToByteArray())))
-        return null
-    }
-
-    private fun sendChangelistNotEnabled(request: HttpRequest, context: ChannelHandlerContext): String? {
-        sendResponse(request, context, DefaultFullHttpResponse(request.protocolVersion(), HttpResponseStatus.FORBIDDEN,
-                Unpooled.wrappedBuffer("Changelists not enabled".encodeToByteArray())))
-        return null
-    }
-
-    private fun sendBadRequest(request: HttpRequest, result: TargetResult.MissingParameter, context: ChannelHandlerContext): String? {
-        sendResponse(request, context, DefaultFullHttpResponse(request.protocolVersion(), HttpResponseStatus.BAD_REQUEST,
-                Unpooled.wrappedBuffer(result.getOrNull().encodeToByteArray())))
+    private fun sendEmptyResponse(status: HttpResponseStatus, context: ChannelHandlerContext): String? {
+        sendStatus(status, false, context.channel())
         return null
     }
 
     private fun handleResult(request: HttpRequest, result: TargetResult, context: ChannelHandlerContext, onSuccess: (context: ChannelHandlerContext) -> String?): String? {
         return when (result) {
             TargetResult.Success -> onSuccess(context)
-            TargetResult.ChangelistNotEnabled -> sendChangelistNotEnabled(request, context)
-            is TargetResult.ChangelistNotFound -> sendChangelistNotFound(request, result, context)
-            is TargetResult.MissingParameter -> sendBadRequest(request, result, context)
-            is TargetResult.ProjectNotFound -> sendProjectNotFound(request, result, context)
+            is TargetResult.ChangelistNotEnabled -> sendErrorResponse(request, result, HttpResponseStatus.FORBIDDEN, context)
+            is TargetResult.ProjectNotFound -> sendErrorResponse(request, result, HttpResponseStatus.NOT_FOUND, context)
+            is TargetResult.ChangelistNotFound -> sendErrorResponse(request, result, HttpResponseStatus.NOT_FOUND, context)
+            is TargetResult.MissingParameter -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
         }
+    }
+
+    private fun sendErrorResponse(request: HttpRequest, result: TargetResult.ErrorTargetResult, status: HttpResponseStatus, context: ChannelHandlerContext): String? {
+        sendResponse(request, context, DefaultFullHttpResponse(request.protocolVersion(), status,
+                Unpooled.wrappedBuffer(result.getOrNull().encodeToByteArray())))
+        return null
     }
 }

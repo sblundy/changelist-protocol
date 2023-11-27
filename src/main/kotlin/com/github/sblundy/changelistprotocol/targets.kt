@@ -1,7 +1,6 @@
 package com.github.sblundy.changelistprotocol
 
 import com.google.gson.stream.JsonWriter
-import com.intellij.ide.IdeBundle
 import com.intellij.navigation.ProtocolOpenProjectResult
 import com.intellij.navigation.openProject
 import com.intellij.openapi.project.Project
@@ -125,14 +124,10 @@ private fun LocalChangeList.write(write: JsonWriter) {
     write.endObject()
 }
 
-internal open class Params(parameters: Map<String, String?>) {
-    var project: String? = parameters["project"]
-}
+internal open class Params(var project: String?)
 
-internal open class ChangelistParams(parameters: Map<String, String?>) : Params(parameters) {
-    constructor(project: String?, name: String?): this(mapOf("project" to project, "name" to name))
-
-    var name: String? = parameters["name"]
+internal open class ChangelistParams(project: String?, var name: String?) : Params(project) {
+    constructor(parameters: Map<String, String?>) : this(parameters["project"], parameters["name"])
 
     fun withName(f: (name: String) -> TargetResult): TargetResult =
             name?.let { name -> return f(name) } ?: TargetResult.MissingParameter("name")
@@ -159,8 +154,6 @@ internal class EditParams(parameters: Map<String, String?>) : AddParams(paramete
     var newName: String? = parameters["new-name"]
 }
 
-internal fun Map<String, String?>.withName(name: String): Map<String, String?> = plus("name" to name)
-internal fun Map<String, String?>.withProject(name: String): Map<String, String?> = plus("project" to name)
 private fun Project.getChangelistManager(): ChangeListManager = ChangeListManager.getInstance(this)
 private fun Project.getChangelistManagerEx(): ChangeListManagerEx = ChangeListManagerEx.getInstanceEx(this)
 
@@ -170,17 +163,21 @@ internal sealed interface TargetResult {
         override fun getOrNull(): String? = null
     }
 
-    data object ChangelistNotEnabled: TargetResult {
+    sealed interface ErrorTargetResult: TargetResult {
+        override fun getOrNull(): String
+    }
+
+    data object ChangelistNotEnabled: ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.not.enabled")
     }
 
-    data class ProjectNotFound(val name: String?, val message: String): TargetResult {
+    data class ProjectNotFound(val name: String?, val message: String): ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.project.not.found", name?:"null", message)
     }
-    data class ChangelistNotFound(val name: String): TargetResult {
+    data class ChangelistNotFound(val name: String): ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.not.found", name)
     }
-    data class MissingParameter(val param: String): TargetResult {
+    data class MissingParameter(val param: String): ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.parameter.required", param)
     }
 }
