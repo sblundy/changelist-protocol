@@ -1,0 +1,107 @@
+# Create a random changelist name
+< {%
+    client.global.set("changelistName", "Actual Changelist "+Math.random())
+    client.global.set("changelistNameEscaped", encodeURIComponent(client.global.get("changelistName")))
+    client.global.set("port", "63342") // Change port here if using non-default
+%}
+
+# Capture current active changelist
+# curl http://localhost:63342/api/changelist/changelist-protocol/
+GET http://localhost:{{port}}/api/changelist/changelist-protocol
+Accept: application/json
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+    client.global.set("previousChangelist", response.body.changelists.find(list => list.active).name)
+%}
+
+###
+# curl --data '{"name":"Actual Changelist","comment":"Test comment"}' --header "Content-Type: application/json" http://localhost:63342/api/changelist/changelist-protocol/
+POST http://localhost:{{port}}/api/changelist/changelist-protocol/
+Content-Type: application/json
+
+{"name":"{{changelistName}}","comment":"Test comment"}
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 201, "Response status is not 201");
+    });
+%}
+
+###
+# curl -v --header "Accept: application/json" -X GET http://localhost:63342/api/changelist/changelist-protocol/Actual%20Changelist
+GET http://localhost:{{port}}/api/changelist/changelist-protocol/{{changelistNameEscaped}}
+Accept: application/json
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+    client.test("Response body correct", function() {
+        client.assert(response.body.name === client.global.get("changelistName"), "Name incorrect");
+        client.assert(response.body.active === true, "Not active");
+        client.assert(response.body.comment === "Test comment", "Comment incorrect");
+    });
+%}
+
+###
+# curl -v -X PUT --data '{"comment":"New comment"}' --header "Content-Type: application/json" http://localhost:63342/api/changelist/changelist-protocol/Actual%20Changelist/
+PUT http://localhost:{{port}}/api/changelist/changelist-protocol/{{changelistNameEscaped}}
+Content-Type: application/json
+
+{"comment":"New comment"}
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 204, "Response status is not 204");
+    });
+%}
+
+###
+GET http://localhost:{{port}}/api/changelist/changelist-protocol/{{changelistNameEscaped}}
+Accept: application/json
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+    client.test("Response body correct", function() {
+        client.assert(response.body.comment === "New comment", "Comment incorrect");
+    });
+%}
+
+###
+# Deactivate the changelist so it can be deleted
+PUT http://localhost:{{port}}/api/changelist/changelist-protocol/{{previousChangelist}}
+Content-Type: application/json
+
+{"active":true}
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 204, "Response status is not 204");
+    });
+%}
+
+###
+# curl -v -X DELETE http://localhost:63342/api/changelist/changelist-protocol/Actual%20Changelist
+DELETE http://localhost:{{port}}/api/changelist/changelist-protocol/{{changelistNameEscaped}}
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 204, "Response status is not 204");
+    });
+%}
+
+###
+# Verify it's been deleted
+GET http://localhost:{{port}}/api/changelist/changelist-protocol/{{changelistNameEscaped}}
+Accept: application/json
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 404, "Response status is not 200");
+    });
+%}
