@@ -75,6 +75,9 @@ internal sealed class WriteTarget<P : Params> {
     data object EditTarget : WriteTarget<EditParams>() {
         override fun doExecute(project: Project, parameters: EditParams): TargetResult =
                 parameters.withChangelist(project) { name, clmgr, list ->
+                    if (parameters.payload.activate == false) {
+                        return@withChangelist TargetResult.DeactivateNotPermitted
+                    }
                     if (parameters.payload.activate != false) {
                         clmgr.setDefaultChangeList(list, true)
                     }
@@ -173,6 +176,10 @@ internal sealed interface TargetResult {
 
     data object ChangelistNotEnabled: ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.not.enabled")
+    }
+
+    data object DeactivateNotPermitted : ErrorTargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.disabled.not.permitted")
     }
 
     data class ProjectNotFound(val name: String?, val message: String): ErrorTargetResult {

@@ -74,6 +74,15 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
 
     @TestChangelist
     @Test
+    fun deactivateNotPermitted() {
+        val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName", "{\"activate\":false}")
+
+        assertNull(result)
+        assertStatus(BAD_REQUEST, channel)
+    }
+
+    @TestChangelist
+    @Test
     fun update() {
         val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName","{\"comment\":\"test\"}")
 

@@ -99,6 +99,7 @@ class ChangelistRestService : RestService() {
             is TargetResult.ProjectNotFound -> sendErrorResponse(request, result, HttpResponseStatus.NOT_FOUND, context)
             is TargetResult.ChangelistNotFound -> sendErrorResponse(request, result, HttpResponseStatus.NOT_FOUND, context)
             is TargetResult.MissingParameter -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
+            is TargetResult.DeactivateNotPermitted -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
         }
     }
 
