@@ -40,12 +40,12 @@ Those that are _none_ have been attempted and not responded to any probable IDs.
 open jetbrains://idea/changelist/add?project=changelist-protocol&name=Actual%20Changelist&comment=Test%20comment
 ```
 
-| Parameter  | Required | Type    | Description                                                   |
-|------------|----------|---------|---------------------------------------------------------------|
-| `project`  | Yes      | string  | Project to create the changelist in                           |
-| `name`     | Yes      | string  | Changelist name                                               |
-| `comment`  | No       | string  | Changelist comment                                            |
-| `activate` | No       | boolean | Whether to make new changelist the active one (default: true) |
+| Parameter | Required | Type    | Description                                                   |
+|-----------|----------|---------|---------------------------------------------------------------|
+| `project` | Yes      | string  | Project to create the changelist in                           |
+| `name`    | Yes      | string  | Changelist name                                               |
+| `comment` | No       | string  | Changelist comment                                            |
+| `active`  | No       | boolean | Whether to make new changelist the active one (default: true) |
 
 #### Set Active Changelist
 
@@ -58,7 +58,7 @@ open jetbrains://pycharm/changelist/activate?project=changelist-protocol&name=Ne
 |-----------|---------------------------------|---------|---------------------------------|
 | `project` | Yes                             | string  | Changelist's project            |
 | `name`    | Yes, unless `default` is `true` | string  | Changelist name                 |
-| `default` | No                              | boolean | Activate the default changelist |
+| `default` | No                              | boolean | Active the default changelist   |
 
 #### Update Changelist
 
@@ -72,7 +72,7 @@ open jetbrains://pycharm/changelist/update?project=changelist-protocol&name=New%
 | `project`  | Yes      | string  | Changelist's project                      |
 | `name`     | Yes      | string  | Changelist name                           |
 | `new-name` | No       | string  | Rename Changelist to this name            |
-| `activate` | No       | boolean | Whether to make changelist the active one |
+| `active`   | No       | boolean | Whether to make changelist the active one |
 | `comment`  | No       | string  | Changelist comment                        |
 
 #### Delete Changelist

@@ -49,7 +49,7 @@ internal sealed class WriteTarget<P : Params> {
                 parameters.payload.name?.let { name ->
                     val clmgr = project.getChangelistManager()
                     val list = clmgr.addChangeList(name, parameters.payload.comment)
-                    if (parameters.payload.activate != false) {
+                    if (parameters.payload.active != false) {
                         clmgr.defaultChangeList = list
                     }
                     TargetResult.Success
@@ -75,10 +75,10 @@ internal sealed class WriteTarget<P : Params> {
     data object EditTarget : WriteTarget<EditParams>() {
         override fun doExecute(project: Project, parameters: EditParams): TargetResult =
                 parameters.withChangelist(project) { name, clmgr, list ->
-                    if (parameters.payload.activate == false) {
+                    if (parameters.payload.active == false) {
                         return@withChangelist TargetResult.DeactivateNotPermitted
                     }
-                    if (parameters.payload.activate != false) {
+                    if (parameters.payload.active != false) {
                         clmgr.setDefaultChangeList(list, true)
                     }
                     parameters.payload.comment?.let {
@@ -146,8 +146,8 @@ internal open class ChangelistParams(project: String?, val name: String?) : Para
 
 internal open class AddParams(project: String?, val payload: Payload) : Params(project) {
     constructor(parameters: Map<String, String?>) : this(parameters["project"],
-            Payload(parameters["name"], parameters["comment"], parameters["activate"]?.toBoolean()))
-    data class Payload(val name: String?, val comment: String?, val activate: Boolean?)
+            Payload(parameters["name"], parameters["comment"], parameters["active"]?.toBoolean()))
+    data class Payload(val name: String?, val comment: String?, val active: Boolean?)
 }
 
 internal class ActivateParams(parameters: Map<String, String?>) : ChangelistParams(parameters) {
@@ -156,9 +156,9 @@ internal class ActivateParams(parameters: Map<String, String?>) : ChangelistPara
 
 internal class EditParams(project: String?, name: String?, val payload: Payload) : ChangelistParams(project, name) {
     constructor(parameters: Map<String, String?>) :
-            this(parameters["project"], parameters["name"], Payload(parameters["comment"], parameters["activate"]?.toBoolean(), parameters["new-name"]))
+            this(parameters["project"], parameters["name"], Payload(parameters["comment"], parameters["active"]?.toBoolean(), parameters["new-name"]))
 
-    data class Payload(val comment: String?, val activate: Boolean?, val newName: String?)
+    data class Payload(val comment: String?, val active: Boolean?, val newName: String?)
 }
 
 private fun Project.getChangelistManager(): ChangeListManager = ChangeListManager.getInstance(this)

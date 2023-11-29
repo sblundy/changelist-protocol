@@ -9,7 +9,7 @@ class ChangelistJBProtocol : JBProtocolCommand("changelist") {
      *
      * add\\?project=(?<project>[\\w]+)
      *   &name=(?<name>[\\w]+)
-     *   (&activate=(?<activate>true|false))?
+     *   (&active=(?<active>true|false))?
      *   (&comment=(?<comment>[\\w]+))?
      *
      * activate\\?project=(?<project>[\\w]+)
@@ -19,7 +19,7 @@ class ChangelistJBProtocol : JBProtocolCommand("changelist") {
      * update\\?project=(?<project>[\\w]+)
      *   &name=(?<name>[\\w]+)
      *   (&new-name=(?<new-name>[\\w]+))?
-     *   (&activate=(?<activate>true))?
+     *   (&active=(?<active>true))?
      *   (&comment=(?<comment>[\\w]+))?
      *
      * remove\\?project=(?<project>[\\w]+)

@@ -25,7 +25,7 @@ class AddTargetTest : ChangelistJBProtocolTargetTestCase("add") {
     }
 
     @Test
-    fun activateFalse() = targetTest("name" to testChangeListName, "activate" to "false") { result ->
+    fun activeFalse() = targetTest("name" to testChangeListName, "active" to "false") { result ->
         assertNull(result)
 
         assertNumChangelist(2)
