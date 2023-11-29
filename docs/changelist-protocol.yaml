@@ -1,0 +1,286 @@
+openapi: 3.1.0
+info:
+  title: Changelist Automated
+  summary: Changelist Automated REST API
+  description: |-
+    ## Rest Service Usage
+
+    ```shell
+    $ curl http://localhost:63342/api/changelist/changelist-protocol/
+    {
+      "changelists": [
+        {
+          "name": "Initial impl",
+          "active": true,
+          "comment": "Initial RestService"
+        },
+        {
+          "name": "Changes",
+          "comment": ""
+        }
+      ]
+    }
+    ```
+
+    ## Built-In Server Configuration
+
+    The default port for the built-in server is 63342. 
+    However, if you have multiple Jetbrains IDEs running, only one of them will be listening on it. 
+    The port can be changed by going to "Preferences | Build, Execution, Deployment | Debugger" settings. 
+    It's under "Built-in Server". 
+
+    See [Debugger > Built-in Server](https://www.jetbrains.com/help/idea/2023.2/settings-debugger.html#24aabda8) for more details
+  version: 0.1.0
+servers:
+  - url: 'http://localhost:{port}/api'
+    variables:
+      port:
+        descriptions: To configure, see https://www.jetbrains.com/help/idea/2023.2/settings-debugger.html#24aabda8
+        default: "63342"
+paths:
+  "/changelist/{project}":
+    get:
+      parameters:
+        - "$ref": "#/components/parameters/projectName"
+      operationId: listChangelists
+      description: List project changelists
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changelists:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/changelist"
+              example:
+                {
+                  "changelists": [
+                    {
+                      "name": "Initial impl",
+                      "active": true,
+                      "comment": "Initial RestService"
+                    },
+                    {
+                      "name": "Changes",
+                      "comment": ""
+                    }
+                  ]
+                }
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
+        404:
+          "$ref": "#/components/responses/projectNotFound"
+
+    post:
+      operationId: addChangelist
+      parameters:
+        - "$ref": "#/components/parameters/projectName"
+      description: Add a new changelist to project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: &nameDescription The name of the changelist
+                  required: true
+                comment:
+                  type: string
+                  description: &commentDescription Contents of the changelist comment field
+                  default: ""
+                active:
+                  type: boolean
+                  description: &activeFlagDescription Whether the changelist is currently the active changelist. There must be one and only one active comment
+                  default: true
+              required:
+                - name
+            examples:
+              minimalNewChangelist:
+                value: {
+                  "name": "Changes"
+                }
+              notActiveNewChangelist:
+                value: {
+                  "name": "Changes",
+                  "active": false
+                }
+      responses:
+        201:
+          description: Changelist has been created
+          links:
+            changelist:
+              operationId: getChangelist
+              parameters:
+                project: $request.path.project
+                name: $request.body#/name
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
+        404:
+          "$ref": "#/components/responses/projectNotFound"
+
+
+  "/changelist/{project}/{name}":
+    get:
+      operationId: getChangelist
+      parameters:
+        - "$ref": "#/components/parameters/projectName"
+        - "$ref": "#/components/parameters/changelistName"
+      description: Get project changelist
+      responses:
+        200:
+          content:
+            application/json:
+              "$ref": "#/components/schemas/changelist"
+              example:
+                {
+                  "name": "Initial impl",
+                  "active": true,
+                  "comment": "Initial RestService"
+                }
+          description: The changelist
+          links:
+            self:
+              operationId: getChangelist
+              parameters:
+                project: $request.path.project
+                name: $request.path.name
+            updateChangelist:
+              operationId: updateChangelist
+              parameters:
+                project: $request.path.project
+                name: $request.path.name
+            deleteChangelist:
+              operationId: deleteChangelist
+              parameters:
+                project: $request.path.project
+                name: $request.path.name
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
+        404:
+          "$ref": "#/components/responses/projectOrChangelistNotFound"
+
+    put:
+      operationId: updateChangelist
+      parameters:
+        - "$ref": "#/components/parameters/projectName"
+        - "$ref": "#/components/parameters/changelistName"
+      description: Update project changelist
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: The new name of the changelist
+                comment:
+                  type: string
+                  description: *commentDescription
+                active:
+                  type: boolean
+                  description: *activeFlagDescription
+                  enum: true
+            examples:
+              renameChangelist:
+                description: To change the name of a changelist, the path is the old path. The new name goes in the payload
+                value: {
+                   "name": "New name"
+                }
+              makeChangelistActive:
+                description: |-
+                  Marks the changelist as the active changelist. There has to be an active changelist, so you cannot pass in `"active": false`
+                value: {
+                   "active": true
+                }
+              updateComment:
+                value: {
+                   "comment": "New comment"
+                }
+      responses:
+        204:
+          description: Changelist has been updated
+          links:
+            changelist:
+              operationId: getChangelist
+              parameters:
+                project: $request.path.project
+                name: $request.path.name
+            renamedChangelist:
+              description: If the changelist has been renamed by providing a different value in the body "name" field, that value must be used going forward
+              operationId: getChangelist
+              parameters:
+                project: $request.path.project
+                name: $request.body#/name
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
+        404:
+          "$ref": "#/components/responses/projectOrChangelistNotFound"
+
+    delete:
+      operationId: deleteChangelist
+      parameters:
+        - "$ref": "#/components/parameters/projectName"
+        - "$ref": "#/components/parameters/changelistName"
+      description: Delete changelist from project
+      responses:
+        204:
+          description: Changelist has been deleted
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
+        404:
+          "$ref": "#/components/responses/projectOrChangelistNotFound"
+
+components:
+  parameters:
+    projectName:
+      name: project
+      description: |-
+        The name of the project. Must be in the IDE's "Recent Projects". Also, must be a single valid path element. So any space, slashes, etc will have to be escaped. Path escaping codes can be found at: https://www.w3schools.com/tags/ref_urlencode.ASP. For details of a valid path, see https://www.rfc-editor.org/rfc/rfc3986#section-3.3
+      required: true
+      in: path
+      schema:
+        type: string
+    changelistName:
+      name: name
+      description: |-
+        Changelist name. Must be a single valid path element. So any space, slashes, etc will have to be escaped. Path escaping codes can be found at: https://www.w3schools.com/tags/ref_urlencode.ASP. For details of a valid path, see https://www.rfc-editor.org/rfc/rfc3986#section-3.3
+      required: true
+      in: path
+      schema:
+        type: string
+
+  schemas:
+    changelist:
+      type: object
+      properties:
+        name:
+          type: string
+          description: *nameDescription
+        comment:
+          type: string
+          description: *commentDescription
+        active:
+          type: boolean
+          description: *activeFlagDescription
+        readOnly:
+          type: boolean
+          description: Whether the changelist has been marked as read-only by the system
+      required:
+        - name
+
+  responses:
+    changelistsNotEnabled:
+      description: Project does not have changelists enabled
+    projectNotFound:
+      description: Project not found
+    projectOrChangelistNotFound:
+      description: Changelist not found in project
+    requireParameterMissing:
+      description: Changelist not found in project
