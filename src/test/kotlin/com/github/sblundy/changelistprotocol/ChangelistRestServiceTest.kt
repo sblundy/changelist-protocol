@@ -103,6 +103,17 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
         assertNull(clm.findChangeList(testChangeListName))
     }
 
+    @TestChangelist(active = true)
+    @Test
+    fun deleteFailsIfActive() {
+        val (channel, result) = executeTest(HttpMethod.DELETE, "api/changelist/${project.name}/$testChangeListName")
+
+        assertNull(result)
+        assertStatus(BAD_REQUEST, channel)
+
+        assertNotNull(clm.findChangeList(testChangeListName))
+    }
+
     @TestChangelist
     @Test
     fun projectNotFound() {

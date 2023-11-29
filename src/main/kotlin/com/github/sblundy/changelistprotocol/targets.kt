@@ -94,6 +94,9 @@ internal sealed class WriteTarget<P : Params> {
     data object RemoveTarget : WriteTarget<ChangelistParams>() {
         override fun doExecute(project: Project, parameters: ChangelistParams): TargetResult =
                 parameters.withChangelist(project) { _, clmgr, list ->
+                    if (list.isDefault) {
+                        return@withChangelist TargetResult.DeleteNotPermitted
+                    }
                     clmgr.removeChangeList(list)
                     return@withChangelist TargetResult.Success
                 }
@@ -180,6 +183,10 @@ internal sealed interface TargetResult {
 
     data object DeactivateNotPermitted : ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.disabled.not.permitted")
+    }
+
+    data object DeleteNotPermitted : ErrorTargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.delete.not.permitted")
     }
 
     data class ProjectNotFound(val name: String?, val message: String): ErrorTargetResult {

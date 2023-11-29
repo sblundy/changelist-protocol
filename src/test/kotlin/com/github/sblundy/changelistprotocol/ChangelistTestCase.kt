@@ -78,16 +78,20 @@ val ChangelistMgr = DataKey.create<ChangeListManagerEx>("ChangelistMgr")
 
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.FUNCTION)
-annotation class TestChangelist(val create: Boolean = true)
+annotation class TestChangelist(val create: Boolean = true, val active: Boolean = false)
 
 class TestChangelistRule: MethodRule {
     override fun apply(base: Statement, method: FrameworkMethod, target: Any): Statement {
-        return if (method.getAnnotation(TestChangelist::class.java)?.create == true) {
+        val annotation = method.getAnnotation(TestChangelist::class.java)
+        return if (annotation?.create == true) {
             object : Statement() {
                 override fun evaluate() {
                     val clmgr = ChangelistMgr.getData(target as DataProvider)!!
                     val name = TestChangelistName.getData(target)
                     clmgr.addChangeList(name!!, null)
+                    if (annotation.active) {
+                        clmgr.setDefaultChangeList(name)
+                    }
                     base.evaluate()
                 }
             }
