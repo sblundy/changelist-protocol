@@ -8,6 +8,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.*
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.ide.RestService
+import kotlin.reflect.KClass
 
 @Suppress("NAME_SHADOWING")
 class ChangelistRestService : RestService() {
@@ -69,15 +70,17 @@ class ChangelistRestService : RestService() {
     }
 
     private suspend fun executePOST(project: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
-            handleResult(request, WriteTarget.AddTarget.execute(gson.fromJson<AddParams>(createJsonReader(request), AddParams::class.java).apply {
-                this.project = project
-            }), context) { sendEmptyResponse(HttpResponseStatus.CREATED, it) }
+            handleResult(request, WriteTarget.AddTarget.execute(AddParams(project, readPayload(request, AddParams.Payload::class))), context) {
+                sendEmptyResponse(HttpResponseStatus.CREATED, it)
+            }
 
     private suspend fun executePUT(project: String, changelist: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
-            handleResult(request, WriteTarget.EditTarget.execute(gson.fromJson<EditParams>(createJsonReader(request), EditParams::class.java).apply {
-                this.project = project
-                this.name = changelist
-            }), context) { sendEmptyResponse(HttpResponseStatus.NO_CONTENT, it) }
+            handleResult(request, WriteTarget.EditTarget.execute(EditParams(project, changelist, readPayload(request, EditParams.Payload::class))), context) {
+                sendEmptyResponse(HttpResponseStatus.NO_CONTENT, it)
+            }
+
+    private fun <P: Any> readPayload(request: FullHttpRequest, p: KClass<P>): P =
+            gson.fromJson(createJsonReader(request), p.java)
 
     private suspend fun executeDELETE(project: String, changelist: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
             handleResult(request, WriteTarget.RemoveTarget.execute(ChangelistParams(project, changelist)), context) { sendEmptyResponse(HttpResponseStatus.NO_CONTENT, it) }

@@ -52,6 +52,15 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
         assertNotNull(clm.findChangeList(testChangeListName))
     }
 
+    @TestChangelist(create = false)
+    @Test
+    fun addRejectedOnNoName() {
+        val (channel, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}","{}")
+
+        assertNull(result)
+        assertStatus(BAD_REQUEST, channel)
+    }
+
     @TestChangelist
     @Test
     fun activate() {
@@ -100,6 +109,32 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
 
         assertNull(result)
         assertStatus(NOT_FOUND, channel)
+    }
+
+    @Test
+    fun apiRoot() {
+        val (channel, result) = executeTest(HttpMethod.GET, "api/changelist/")
+
+        assertNull(result)
+        assertStatus(NOT_FOUND, channel)
+    }
+
+    @TestChangelist
+    @Test
+    fun changelistsEndpointHasNoPut() {
+        val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}","{\"comment\":\"test\"}")
+
+        assertNull(result)
+        assertStatus(METHOD_NOT_ALLOWED, channel)
+    }
+
+    @TestChangelist
+    @Test
+    fun changelistEndpointHasNoPost() {
+        val (channel, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}/$testChangeListName","{\"name\":\"$testChangeListName\"}")
+
+        assertNull(result)
+        assertStatus(METHOD_NOT_ALLOWED, channel)
     }
 
     private fun executeTest(method: HttpMethod, uri: String): Pair<EmbeddedChannel, String?> {

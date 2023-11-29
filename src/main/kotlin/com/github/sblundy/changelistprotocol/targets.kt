@@ -38,7 +38,7 @@ internal sealed class ReadTarget<P : Params> {
     }
 }
 
-internal sealed class WriteTarget<P : ChangelistParams> {
+internal sealed class WriteTarget<P : Params> {
     suspend fun execute(parameters: P): TargetResult =
             withProject(parameters) { project -> doExecute(project, parameters) }
 
@@ -46,14 +46,14 @@ internal sealed class WriteTarget<P : ChangelistParams> {
 
     data object AddTarget : WriteTarget<AddParams>() {
         override fun doExecute(project: Project, parameters: AddParams): TargetResult =
-                parameters.withName { name ->
+                parameters.payload.name?.let { name ->
                     val clmgr = project.getChangelistManager()
-                    val list = clmgr.addChangeList(name, parameters.comment)
-                    if (parameters.activate != false) {
+                    val list = clmgr.addChangeList(name, parameters.payload.comment)
+                    if (parameters.payload.activate != false) {
                         clmgr.defaultChangeList = list
                     }
                     TargetResult.Success
-                }
+                }?: TargetResult.MissingParameter("name")
     }
 
     data object ActivateTarget : WriteTarget<ActivateParams>() {
@@ -75,13 +75,13 @@ internal sealed class WriteTarget<P : ChangelistParams> {
     data object EditTarget : WriteTarget<EditParams>() {
         override fun doExecute(project: Project, parameters: EditParams): TargetResult =
                 parameters.withChangelist(project) { name, clmgr, list ->
-                    if (parameters.activate != false) {
+                    if (parameters.payload.activate != false) {
                         clmgr.setDefaultChangeList(list, true)
                     }
-                    parameters.comment?.let {
+                    parameters.payload.comment?.let {
                         clmgr.editComment(name, it)
                     }
-                    parameters.newName?.let {
+                    parameters.payload.newName?.let {
                         clmgr.editName(name, it)
                     }
                     TargetResult.Success
@@ -124,9 +124,9 @@ private fun LocalChangeList.write(write: JsonWriter) {
     write.endObject()
 }
 
-internal open class Params(var project: String?)
+internal open class Params(val project: String?)
 
-internal open class ChangelistParams(project: String?, var name: String?) : Params(project) {
+internal open class ChangelistParams(project: String?, val name: String?) : Params(project) {
     constructor(parameters: Map<String, String?>) : this(parameters["project"], parameters["name"])
 
     fun withName(f: (name: String) -> TargetResult): TargetResult =
@@ -141,17 +141,21 @@ internal open class ChangelistParams(project: String?, var name: String?) : Para
             }
 }
 
-internal open class AddParams(parameters: Map<String, String?>) : ChangelistParams(parameters) {
-    var comment: String? = parameters["comment"]
-    var activate: Boolean? = parameters["activate"]?.toBoolean()
+internal open class AddParams(project: String?, val payload: Payload) : Params(project) {
+    constructor(parameters: Map<String, String?>) : this(parameters["project"],
+            Payload(parameters["name"], parameters["comment"], parameters["activate"]?.toBoolean()))
+    data class Payload(val name: String?, val comment: String?, val activate: Boolean?)
 }
 
-internal class ActivateParams(parameters: Map<String, String?>) : AddParams(parameters) {
+internal class ActivateParams(parameters: Map<String, String?>) : ChangelistParams(parameters) {
     var default: Boolean? = parameters["default"]?.toBoolean()
 }
 
-internal class EditParams(parameters: Map<String, String?>) : AddParams(parameters) {
-    var newName: String? = parameters["new-name"]
+internal class EditParams(project: String?, name: String?, val payload: Payload) : ChangelistParams(project, name) {
+    constructor(parameters: Map<String, String?>) :
+            this(parameters["project"], parameters["name"], Payload(parameters["comment"], parameters["activate"]?.toBoolean(), parameters["new-name"]))
+
+    data class Payload(val comment: String?, val activate: Boolean?, val newName: String?)
 }
 
 private fun Project.getChangelistManager(): ChangeListManager = ChangeListManager.getInstance(this)
