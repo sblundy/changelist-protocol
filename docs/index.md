@@ -86,3 +86,7 @@ open jetbrains://goland/changelist/remove?project=changelist-protocol&name=Actua
 |-----------|----------|---------|----------------------|
 | `project` | Yes      | string  | Changelist's project |
 | `name`    | Yes      | string  | Changelist name      |
+
+### X-Callback
+
+Supports https://x-callback-url.com callback URLs. If provided, `x-success` or `x-error` will be invoked as appropriate.
