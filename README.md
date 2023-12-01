@@ -4,6 +4,7 @@
 [![Version](https://img.shields.io/jetbrains/plugin/v/23204-changelists-automated.svg)](https://plugins.jetbrains.com/plugin/23204-changelists-automated)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/23204-changelists-automated.svg)](https://plugins.jetbrains.com/plugin/23204-changelists-automated)
 
+[Documentation](https://sblundy.github.io/changelist-protocol/) — [Installation](#installation)
 
 <!-- Plugin description -->
 Manipulate IDE changelists externally via the [Built-In Server](https://blog.jetbrains.com/webide/2013/03/built-in-server-in-webstorm-6/) and [`jetbrains://` custom URL scheme](https://youtrack.jetbrains.com/issue/TBX-3965/Documentation-for-Toolbox-Reference-URL-Scheme)<sup>*</sup>.

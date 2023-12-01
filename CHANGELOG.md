@@ -8,6 +8,10 @@
 
 - Project Icon
 
+### Changed
+
+- README improvements
+
 ### Fixed
 
 - Linter warning
