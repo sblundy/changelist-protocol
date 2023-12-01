@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Project Icon
+
 ### Fixed
 
 - Linter warning
