@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Linter warning
+
 ## [0.1.0-beta.1] - 2023-12-01
 
 ### Added
