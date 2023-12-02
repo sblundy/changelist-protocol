@@ -48,13 +48,13 @@ internal sealed class WriteTarget<P : Params> {
     data object AddTarget : WriteTarget<AddParams>() {
         override fun doExecute(project: Project, parameters: AddParams): TargetResult =
                 parameters.payload.name?.let { name ->
-                    val clmgr = project.getChangelistManager()
+                    val clmgr = project.getChangelistManagerEx()
                     if (clmgr.findChangeList(name) != null) {
                         return@let TargetResult.DuplicateChangelist
                     }
                     val list = clmgr.addChangeList(name, parameters.payload.comment)
                     if (parameters.payload.active != false) {
-                        clmgr.defaultChangeList = list
+                        clmgr.setDefaultChangeList(list, true)
                     }
                     TargetResult.Success
                 } ?: TargetResult.MissingParameter("name")
