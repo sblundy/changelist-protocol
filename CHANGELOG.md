@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- `POST /changelist/{project}/{name}` to correctly handle rename semantics
+- 400 responses where appropriate to OpenAPI doc
+
+### Changed
+
+- `PUT /changelist/{project}/{name}` no longer supports renaming a changelist
+
+### Fixed
+
+- Return 400 when new or renamed changelist will have same name as another existing one
+
 ## [0.1.0-beta.2] - 2023-12-02
 
 ### Added

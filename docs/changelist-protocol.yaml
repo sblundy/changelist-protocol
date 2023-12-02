@@ -119,6 +119,8 @@ paths:
               parameters:
                 project: $request.path.project
                 name: $request.body#/name
+        400:
+          "$ref": "#/components/responses/invalidOrMissingParameter"
         403:
           "$ref": "#/components/responses/changelistsNotEnabled"
         404:
@@ -165,6 +167,53 @@ paths:
         404:
           "$ref": "#/components/responses/projectOrChangelistNotFound"
 
+    post:
+      operationId: renameChangelist
+      parameters:
+        - "$ref": "#/components/parameters/projectName"
+        - "$ref": "#/components/parameters/changelistName"
+      description: Change project changelist name
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new-name:
+                  type: string
+                  description: The new name of the changelist
+                comment:
+                  type: string
+                  description: *commentDescription
+                active:
+                  type: boolean
+                  description: *activeFlagDescription
+                  enum: true
+              required:
+                - new-name
+            examples:
+              renameChangelist:
+                description: To change the name of a changelist, the path is the old path. The new name goes in the payload
+                value: {
+                   "new-name": "New name"
+                }
+      responses:
+        204:
+          description: Changelist has been updated
+          links:
+            changelist:
+              description: Because the changelist has been renamed, the new name must be used going forward
+              operationId: getChangelist
+              parameters:
+                project: $request.path.project
+                name: $request.body#/new-name
+        400:
+          "$ref": "#/components/responses/invalidOrMissingParameter"
+        403:
+          "$ref": "#/components/responses/changelistsNotEnabled"
+        404:
+          "$ref": "#/components/responses/projectOrChangelistNotFound"
+
     put:
       operationId: updateChangelist
       parameters:
@@ -177,9 +226,6 @@ paths:
             schema:
               type: object
               properties:
-                name:
-                  type: string
-                  description: The new name of the changelist
                 comment:
                   type: string
                   description: *commentDescription
@@ -188,11 +234,6 @@ paths:
                   description: *activeFlagDescription
                   enum: true
             examples:
-              renameChangelist:
-                description: To change the name of a changelist, the path is the old path. The new name goes in the payload
-                value: {
-                   "name": "New name"
-                }
               makeChangelistActive:
                 description: |-
                   Marks the changelist as the active changelist. There has to be an active changelist, so you cannot pass in `"active": false`
@@ -212,12 +253,8 @@ paths:
               parameters:
                 project: $request.path.project
                 name: $request.path.name
-            renamedChangelist:
-              description: If the changelist has been renamed by providing a different value in the body "name" field, that value must be used going forward
-              operationId: getChangelist
-              parameters:
-                project: $request.path.project
-                name: $request.body#/name
+        400:
+          "$ref": "#/components/responses/invalidOrMissingParameter"
         403:
           "$ref": "#/components/responses/changelistsNotEnabled"
         404:
@@ -232,6 +269,11 @@ paths:
       responses:
         204:
           description: Changelist has been deleted
+        400:
+          description: Attempted to delete the active changelist
+          content:
+            text/plain:
+              example: "Active changelist cannot be deleted"
         403:
           "$ref": "#/components/responses/changelistsNotEnabled"
         404:
@@ -282,5 +324,14 @@ components:
       description: Project not found
     projectOrChangelistNotFound:
       description: Changelist not found in project
-    requireParameterMissing:
-      description: Changelist not found in project
+    invalidOrMissingParameter:
+      description: Either a parameter is invalid or a required parameter is missing
+      content:
+        text/plain:
+          examples:
+            missingRequiredParameter:
+              summary: A required parameter is missing
+              value: "Parameter Required: name"
+            invalidActiveParameter:
+              summary: Active false specified when it is not permitted
+              value: "Changelists cannot be disabled, only enabled"
