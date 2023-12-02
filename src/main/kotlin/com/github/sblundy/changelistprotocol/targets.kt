@@ -49,6 +49,9 @@ internal sealed class WriteTarget<P : Params> {
         override fun doExecute(project: Project, parameters: AddParams): TargetResult =
                 parameters.payload.name?.let { name ->
                     val clmgr = project.getChangelistManager()
+                    if (clmgr.findChangeList(name) != null) {
+                        return@let TargetResult.DuplicateChangelist
+                    }
                     val list = clmgr.addChangeList(name, parameters.payload.comment)
                     if (parameters.payload.active != false) {
                         clmgr.defaultChangeList = list
@@ -86,6 +89,9 @@ internal sealed class WriteTarget<P : Params> {
                     parameters.payload.newName?.let { newName ->
                         when (val result = applyUpdate(parameters.payload, clmgr, list, name)) {
                             null -> {
+                                if (clmgr.findChangeList(newName) != null) {
+                                    return@let TargetResult.DuplicateChangelist
+                                }
                                 clmgr.editName(name, newName)
                                 TargetResult.Success
                             }
@@ -221,9 +227,12 @@ internal sealed interface TargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.delete.not.permitted")
     }
 
-    data class ProjectNotFound(val name: String?, val message: String) : ErrorTargetResult {
-        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.project.not.found", name
-                ?: "null", message)
+    data object DuplicateChangelist: ErrorTargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.duplicate.not.permitted")
+    }
+
+    data class ProjectNotFound(val name: String?, val message: String): ErrorTargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.project.not.found", name?:"null", message)
     }
 
     data class ChangelistNotFound(val name: String) : ErrorTargetResult {

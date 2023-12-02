@@ -107,6 +107,7 @@ class ChangelistRestService : RestService() {
             is TargetResult.MissingParameter -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
             is TargetResult.DeactivateNotPermitted -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
             is TargetResult.DeleteNotPermitted -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
+            is TargetResult.DuplicateChangelist -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
         }
     }
 
