@@ -38,6 +38,11 @@ abstract class ChangelistTestCase : LightPlatform4TestCase() {
         assertNotNull(list)
     }
 
+    protected fun assertTestChangelistExists(name: String) {
+        val list = clm.findChangeList(name)
+        assertNotNull(list)
+    }
+
     protected fun assertTestChangelistNotExists() {
         val list = clm.findChangeList(testChangeListName)
         assertNull(list)

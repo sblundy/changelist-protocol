@@ -83,6 +83,18 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
 
     @TestChangelist
     @Test
+    fun rename() {
+        val (channel, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}/$testChangeListName","{\"new-name\":\"new-$testChangeListName\"}")
+
+        assertNull(result)
+        assertStatus(NO_CONTENT, channel)
+
+        assertNotNull(clm.findChangeList("new-$testChangeListName"))
+        assertNull(clm.findChangeList(testChangeListName))
+    }
+
+    @TestChangelist
+    @Test
     fun update() {
         val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName","{\"comment\":\"test\"}")
 
@@ -143,15 +155,6 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     @Test
     fun changelistsEndpointHasNoPut() {
         val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}","{\"comment\":\"test\"}")
-
-        assertNull(result)
-        assertStatus(METHOD_NOT_ALLOWED, channel)
-    }
-
-    @TestChangelist
-    @Test
-    fun changelistEndpointHasNoPost() {
-        val (channel, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}/$testChangeListName","{\"name\":\"$testChangeListName\"}")
 
         assertNull(result)
         assertStatus(METHOD_NOT_ALLOWED, channel)

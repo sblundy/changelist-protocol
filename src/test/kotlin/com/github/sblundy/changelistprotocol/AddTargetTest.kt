@@ -32,4 +32,12 @@ class AddTargetTest : ChangelistJBProtocolTargetTestCase("add") {
         assertTestChangelistExists()
         assertTestChangelistNotDefault()
     }
+
+    @TestChangelist
+    @Test
+    fun duplicateNameRejected() = targetTest("name" to testChangeListName) { result: String? ->
+        assertNotNull(result)
+
+        assertNumChangelist(2)
+    }
 }
