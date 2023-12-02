@@ -35,6 +35,7 @@ class ChangelistRestService : RestService() {
                             logger.debug("handling ${request.method()} $project/$changelist")
                             when (request.method()) {
                                 HttpMethod.GET -> executeGET(project, changelist, request, context)
+                                HttpMethod.POST -> executePOST(project, changelist, request, context)
                                 HttpMethod.PUT -> executePUT(project, changelist, request, context)
                                 HttpMethod.DELETE -> executeDELETE(project, changelist, request, context)
                                 else -> sendEmptyResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, context)
@@ -72,6 +73,11 @@ class ChangelistRestService : RestService() {
     private suspend fun executePOST(project: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
             handleResult(request, WriteTarget.AddTarget.execute(AddParams(project, readPayload(request, AddParams.Payload::class))), context) {
                 sendEmptyResponse(HttpResponseStatus.CREATED, it)
+            }
+
+    private suspend fun executePOST(project: String, changelist: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
+            handleResult(request, WriteTarget.RenameEditTarget.execute(RenameEditParams(project, changelist, readPayload(request, RenameEditParams.Payload::class))), context) {
+                sendEmptyResponse(HttpResponseStatus.NO_CONTENT, it)
             }
 
     private suspend fun executePUT(project: String, changelist: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =

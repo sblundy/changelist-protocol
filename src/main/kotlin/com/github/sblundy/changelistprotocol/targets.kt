@@ -1,5 +1,6 @@
 package com.github.sblundy.changelistprotocol
 
+import com.google.gson.annotations.SerializedName
 import com.google.gson.stream.JsonWriter
 import com.intellij.navigation.ProtocolOpenProjectResult
 import com.intellij.navigation.openProject
@@ -53,7 +54,7 @@ internal sealed class WriteTarget<P : Params> {
                         clmgr.defaultChangeList = list
                     }
                     TargetResult.Success
-                }?: TargetResult.MissingParameter("name")
+                } ?: TargetResult.MissingParameter("name")
     }
 
     data object ActivateTarget : WriteTarget<ActivateParams>() {
@@ -75,20 +76,37 @@ internal sealed class WriteTarget<P : Params> {
     data object EditTarget : WriteTarget<EditParams>() {
         override fun doExecute(project: Project, parameters: EditParams): TargetResult =
                 parameters.withChangelist(project) { name, clmgr, list ->
-                    if (parameters.payload.active == false) {
-                        return@withChangelist TargetResult.DeactivateNotPermitted
-                    }
-                    if (parameters.payload.active != false) {
-                        clmgr.setDefaultChangeList(list, true)
-                    }
-                    parameters.payload.comment?.let {
-                        clmgr.editComment(name, it)
-                    }
-                    parameters.payload.newName?.let {
-                        clmgr.editName(name, it)
-                    }
-                    TargetResult.Success
+                    RenameEditTarget.applyUpdate(parameters.payload, clmgr, list, name) ?: TargetResult.Success
                 }
+    }
+
+    data object RenameEditTarget : WriteTarget<RenameEditParams>() {
+        override fun doExecute(project: Project, parameters: RenameEditParams): TargetResult =
+                parameters.withChangelist(project) { name, clmgr, list ->
+                    parameters.payload.newName?.let { newName ->
+                        when (val result = applyUpdate(parameters.payload, clmgr, list, name)) {
+                            null -> {
+                                clmgr.editName(name, newName)
+                                TargetResult.Success
+                            }
+
+                            else -> result
+                        }
+                    } ?: TargetResult.MissingParameter("new-name")
+                }
+    }
+
+    internal fun applyUpdate(payload: ChangelistPayload, clmgr: ChangeListManagerEx, list: LocalChangeList, name: String): TargetResult? {
+        if (payload.active == false) {
+            return TargetResult.DeactivateNotPermitted
+        }
+        if (payload.active != false) {
+            clmgr.setDefaultChangeList(list, true)
+        }
+        payload.comment?.let {
+            clmgr.editComment(name, it)
+        }
+        return null
     }
 
     data object RemoveTarget : WriteTarget<ChangelistParams>() {
@@ -133,7 +151,7 @@ private fun LocalChangeList.write(write: JsonWriter) {
 internal open class Params(val project: String?)
 
 internal open class ChangelistParams(project: String?, val name: String?) : Params(project) {
-    constructor(parameters: Map<String, String?>) : this(parameters["project"], parameters["name"])
+    constructor(parameters: Map<String, String?>) : this(parameters.project, parameters.name)
 
     private fun withName(f: (name: String) -> TargetResult): TargetResult =
             name?.let { name -> return f(name) } ?: TargetResult.MissingParameter("name")
@@ -147,21 +165,34 @@ internal open class ChangelistParams(project: String?, val name: String?) : Para
             }
 }
 
+internal sealed interface ChangelistPayload {
+    val comment: String?
+    val active: Boolean?
+}
+
 internal open class AddParams(project: String?, val payload: Payload) : Params(project) {
-    constructor(parameters: Map<String, String?>) : this(parameters["project"],
-            Payload(parameters["name"], parameters["comment"], parameters["active"]?.toBoolean()))
-    data class Payload(val name: String?, val comment: String?, val active: Boolean?)
+    constructor(parameters: Map<String, String?>) : this(parameters.project,
+            Payload(parameters.name, parameters.comment, parameters.active))
+
+    data class Payload(val name: String?, override val comment: String?, override val active: Boolean?) : ChangelistPayload
 }
 
 internal class ActivateParams(parameters: Map<String, String?>) : ChangelistParams(parameters) {
-    var default: Boolean? = parameters["default"]?.toBoolean()
+    var default: Boolean? = parameters.default
 }
 
 internal class EditParams(project: String?, name: String?, val payload: Payload) : ChangelistParams(project, name) {
     constructor(parameters: Map<String, String?>) :
-            this(parameters["project"], parameters["name"], Payload(parameters["comment"], parameters["active"]?.toBoolean(), parameters["new-name"]))
+            this(parameters.project, parameters.name, Payload(parameters.comment, parameters.active))
 
-    data class Payload(val comment: String?, val active: Boolean?, val newName: String?)
+    data class Payload(override val comment: String?, override val active: Boolean?) : ChangelistPayload
+}
+
+internal class RenameEditParams(project: String?, name: String?, val payload: Payload) : ChangelistParams(project, name) {
+    constructor(parameters: Map<String, String?>) :
+            this(parameters.project, parameters.name, Payload(parameters.newName, parameters.comment, parameters.active))
+
+    data class Payload(@SerializedName("new-name") val newName: String?, override val comment: String?, override val active: Boolean?) : ChangelistPayload
 }
 
 private fun Project.getChangelistManager(): ChangeListManager = ChangeListManager.getInstance(this)
@@ -169,15 +200,16 @@ private fun Project.getChangelistManagerEx(): ChangeListManagerEx = ChangeListMa
 
 internal sealed interface TargetResult {
     fun getOrNull(): String?
-    data object Success: TargetResult {
+
+    data object Success : TargetResult {
         override fun getOrNull(): String? = null
     }
 
-    sealed interface ErrorTargetResult: TargetResult {
+    sealed interface ErrorTargetResult : TargetResult {
         override fun getOrNull(): String
     }
 
-    data object ChangelistNotEnabled: ErrorTargetResult {
+    data object ChangelistNotEnabled : ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.not.enabled")
     }
 
@@ -189,13 +221,28 @@ internal sealed interface TargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.delete.not.permitted")
     }
 
-    data class ProjectNotFound(val name: String?, val message: String): ErrorTargetResult {
-        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.project.not.found", name?:"null", message)
+    data class ProjectNotFound(val name: String?, val message: String) : ErrorTargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.project.not.found", name
+                ?: "null", message)
     }
-    data class ChangelistNotFound(val name: String): ErrorTargetResult {
+
+    data class ChangelistNotFound(val name: String) : ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.not.found", name)
     }
-    data class MissingParameter(val param: String): ErrorTargetResult {
+
+    data class MissingParameter(val param: String) : ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.parameter.required", param)
     }
 }
+
+internal val Map<String, String?>.project: String? get() = this["project"]
+
+internal val Map<String, String?>.name: String? get() = this["name"]
+
+internal val Map<String, String?>.newName: String? get() = this["new-name"]
+
+internal val Map<String, String?>.comment: String? get() = this["comment"]
+
+internal val Map<String, String?>.active: Boolean? get() = this["active"]?.toBoolean()
+
+internal val Map<String, String?>.default: Boolean? get() = this["default"]?.toBoolean()

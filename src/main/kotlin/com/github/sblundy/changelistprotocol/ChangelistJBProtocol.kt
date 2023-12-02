@@ -29,7 +29,11 @@ class ChangelistJBProtocol : JBProtocolCommand("changelist") {
         null -> MyBundle.message("jb.protocol.changelist.target.required")
         "add" -> WriteTarget.AddTarget.execute(AddParams(parameters)).getOrNull()
         "activate" -> WriteTarget.ActivateTarget.execute(ActivateParams(parameters)).getOrNull()
-        "update" -> WriteTarget.EditTarget.execute(EditParams(parameters)).getOrNull()
+        "update" -> if (parameters.containsKey("new-name")) {
+            WriteTarget.RenameEditTarget.execute(RenameEditParams(parameters))
+        } else {
+            WriteTarget.EditTarget.execute(EditParams(parameters))
+        }.getOrNull()
         "remove" -> WriteTarget.RemoveTarget.execute(ChangelistParams(parameters)).getOrNull()
         else -> IdeBundle.message("jb.protocol.unknown.target", target)
     }
