@@ -135,7 +135,7 @@ internal open class Params(val project: String?)
 internal open class ChangelistParams(project: String?, val name: String?) : Params(project) {
     constructor(parameters: Map<String, String?>) : this(parameters["project"], parameters["name"])
 
-    fun withName(f: (name: String) -> TargetResult): TargetResult =
+    private fun withName(f: (name: String) -> TargetResult): TargetResult =
             name?.let { name -> return f(name) } ?: TargetResult.MissingParameter("name")
 
     fun withChangelist(project: Project, f: (name: String, clmgr: ChangeListManagerEx, list: LocalChangeList) -> TargetResult): TargetResult =
