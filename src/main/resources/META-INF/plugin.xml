@@ -15,5 +15,9 @@
     <extensions defaultExtensionNs="com.intellij">
         <jbProtocolCommand implementation="com.github.sblundy.changelistprotocol.ChangelistJBProtocol"/>
         <httpRequestHandler implementation="com.github.sblundy.changelistprotocol.ChangelistRestService"/>
+
+        <applicationService serviceInterface="com.github.sblundy.changelistprotocol.CallbackInvoker"
+                            serviceImplementation="com.github.sblundy.changelistprotocol.system.MacosCallbackInvoker"
+                            testServiceImplementation="com.github.sblundy.changelistprotocol.TestCallbackInvoker"/>
     </extensions>
 </idea-plugin>
