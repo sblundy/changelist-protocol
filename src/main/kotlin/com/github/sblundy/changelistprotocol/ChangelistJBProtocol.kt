@@ -3,6 +3,8 @@ package com.github.sblundy.changelistprotocol
 import com.intellij.ide.IdeBundle
 import com.intellij.openapi.application.JBProtocolCommand
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.vcs.changes.LocalChangeList
+import com.intellij.util.applyIf
 
 class ChangelistJBProtocol : JBProtocolCommand("changelist") {
     private val logger = logger<ChangelistJBProtocol>()
@@ -34,14 +36,10 @@ class ChangelistJBProtocol : JBProtocolCommand("changelist") {
             null -> return MyBundle.message("jb.protocol.changelist.target.required").apply {
                 handleCallback(false, parameters.source, parameters.success, parameters.error)
             }
-            "add" -> WriteTarget.AddTarget.execute(AddParams(parameters))
-            "activate" -> WriteTarget.ActivateTarget.execute(ActivateParams(parameters))
-            "update" -> if (parameters.containsKey("new-name")) {
-                WriteTarget.RenameEditTarget.execute(RenameEditParams(parameters))
-            } else {
-                WriteTarget.EditTarget.execute(EditParams(parameters))
-            }
-            "remove" -> WriteTarget.RemoveTarget.execute(ChangelistParams(parameters))
+            "add" -> executeAdd(parameters)
+            "activate" -> executeActivate(parameters)
+            "update" -> executeUpdate(parameters)
+            "remove" -> executeRemove(parameters)
             else -> return IdeBundle.message("jb.protocol.unknown.target", target).apply {
                 handleCallback(false, parameters.source, parameters.success, parameters.error)
             }
@@ -58,10 +56,18 @@ class ChangelistJBProtocol : JBProtocolCommand("changelist") {
         callback?.let { it: String ->
             logger.info("handling callback for $source")
             CallbackInvoker.getInstance().invoke(source, it)
-        }?:logger.debug("no callback url")
+        } ?: logger.debug("no callback url")
     }
 
     private val Map<String, String?>.source: String? get() = this["x-source"]
     private val Map<String, String?>.success: String? get() = this["x-success"]
     private val Map<String, String?>.error: String? get() = this["x-error"]
+
+    private suspend fun withProjectChangelist(parameters: Map<String, String?>, f: suspend (project: String, name: String) -> TargetResult): TargetResult {
+        return parameters.project?.let { project ->
+            parameters.name?.let { name ->
+                f(project, name)
+            } ?: TargetResult.MissingParameter("name")
+        } ?: TargetResult.MissingParameter("project")
+    }
 }

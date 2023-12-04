@@ -13,6 +13,14 @@ class ActivateTargetTest : ChangelistJBProtocolTargetTestCase("activate") {
 
     @TestChangelist
     @Test
+    fun activatesDefaultChangelist() = targetTest("default" to "true") { result ->
+        assertNull(result)
+
+        assertTestChangelistNotDefault()
+    }
+
+    @TestChangelist
+    @Test
     fun errorOnNonExistentChangelist() = targetTest("name" to "not-$testChangeListName") { result ->
         assertNotNull(result)
 
