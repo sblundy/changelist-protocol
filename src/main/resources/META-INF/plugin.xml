@@ -17,6 +17,10 @@
         <httpRequestHandler implementation="com.github.sblundy.changelistprotocol.ChangelistRestService"/>
 
         <applicationService serviceInterface="com.github.sblundy.changelistprotocol.CallbackInvoker"
+                            serviceImplementation="com.github.sblundy.changelistprotocol.system.DefaultCallbackInvoker"
+                            testServiceImplementation="com.github.sblundy.changelistprotocol.TestCallbackInvoker"/>
+
+        <applicationService serviceInterface="com.github.sblundy.changelistprotocol.CallbackInvoker" os="mac" overrides="true"
                             serviceImplementation="com.github.sblundy.changelistprotocol.system.MacosCallbackInvoker"
                             testServiceImplementation="com.github.sblundy.changelistprotocol.TestCallbackInvoker"/>
     </extensions>

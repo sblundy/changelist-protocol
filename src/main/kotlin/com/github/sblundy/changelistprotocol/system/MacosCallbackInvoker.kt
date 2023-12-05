@@ -1,26 +1,32 @@
 package com.github.sblundy.changelistprotocol.system
 
 import com.github.sblundy.changelistprotocol.CallbackInvoker
-import com.intellij.execution.ExecutionException
-import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.execution.util.ExecUtil.execAndGetOutput
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.ui.mac.foundation.Foundation.*
+import com.intellij.ui.mac.foundation.ID
+import com.intellij.ui.mac.foundation.NSWorkspace
 
 class MacosCallbackInvoker : CallbackInvoker {
     private val logger = logger<MacosCallbackInvoker>()
-    override fun invoke(source: String?, callback: String) {
-        val out = try {
-            execAndGetOutput(GeneralCommandLine("open", callback), 30 * 1000)
-        } catch (e: ExecutionException) {
-            logger.error("open exec error", e)
-            return
-        }
 
-        when (val exitCode = out.exitCode) {
-            0 -> logger.info("success")
-            else -> {
-                logger.error("open failed: $exitCode\nstdout: ${out.stdout}\nstderr: ${out.stderr}")
+    override fun invoke(source: String?, callback: String) {
+        val pool = NSAutoreleasePool()
+        try {
+            val workspace = NSWorkspace.getInstance()
+            val url = callbackURL(callback)
+            if (openURL(workspace, url).booleanValue()) {
+                logger.info("invoked callback: $callback source=$source")
+            } else {
+                logger.warn("callback failed: $callback source=$source")
             }
+        } finally {
+            pool.drain()
         }
     }
+
+    private fun callbackURL(callback: String) =
+            invoke(getObjcClass("NSURL"), "URLWithString:", nsString(callback))
+
+    private fun openURL(workspace: ID, url: ID) =
+            invoke(workspace, "openURL:", url)
 }
