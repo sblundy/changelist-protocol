@@ -50,6 +50,35 @@ class ChangelistJBProtocol : JBProtocolCommand("changelist") {
         return result.getOrNull()
     }
 
+    private suspend fun ChangelistJBProtocol.executeAdd(parameters: Map<String, String>) =
+            withProjectChangelist(parameters) { project: String, name: String ->
+                WriteTarget.AddTarget.execute(AddParams(project,
+                        AddParams.Payload(name, parameters.comment, parameters.active)))
+            }
+
+    private suspend fun ChangelistJBProtocol.executeActivate(parameters: Map<String, String>) =
+            withProjectChangelist(parameters.applyIf(parameters.default == true) {
+                plus("name" to LocalChangeList.getDefaultName())
+            }) { project: String, name: String ->
+                WriteTarget.EditTarget.execute(EditParams(project, name, EditPayload(null, true)))
+            }
+
+    private suspend fun ChangelistJBProtocol.executeUpdate(parameters: Map<String, String>) =
+            parameters.newName?.let { it: String ->
+                withProjectChangelist(parameters) { project: String, name: String ->
+                    WriteTarget.RenameEditTarget.execute(RenameEditParams(project, name,
+                            RenameEditPayload(it, parameters.comment, parameters.active)))
+                }
+            } ?: withProjectChangelist(parameters) { project: String, name: String ->
+                WriteTarget.EditTarget.execute(EditParams(project, name,
+                        EditPayload(parameters.comment, parameters.active)))
+            }
+
+    private suspend fun ChangelistJBProtocol.executeRemove(parameters: Map<String, String>) =
+            withProjectChangelist(parameters) { project: String, name: String ->
+                WriteTarget.RemoveTarget.execute(ChangelistParams(project, name))
+            }
+
     private fun handleCallback(success: Boolean, source: String?, onSuccess: String?, onError: String?) {
         logger.debug("in handleCallback($success)")
         val callback = if (success) { onSuccess } else { onError }
