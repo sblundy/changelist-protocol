@@ -33,6 +33,10 @@ With it you can integrate with local task trackers, scripts, and processes.
    open jetbrains://idea/changelist/remove?project=changelist-protocol&name=New%20Changelist
    curl -X DELETE http://localhost:63342/api/changelist/changelist-protocol/Actual%20Changelist
    ```
+5. Respond to caller workflows: 
+   ```shell
+   open jetbrains://idea/changelist/activate?project=changelist-protocol&name=New%20Changelist&x-source=MyWorkflow&x-success=my-workflow://x-callback-url/ic-success/workflow1&x-error=smy-workflow://x-callback-url/ic-error/workflow1
+   ```
 <!-- Plugin description end -->
 
 ## Installation

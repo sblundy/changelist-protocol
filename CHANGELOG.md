@@ -8,6 +8,7 @@
 
 - `POST /changelist/{project}/{name}` to correctly handle rename semantics
 - 400 responses where appropriate to OpenAPI doc
+- X-Callback-URL support. Invokes `x-success` or `x-error` if provided
 
 ### Changed
 

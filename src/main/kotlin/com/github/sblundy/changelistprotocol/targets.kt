@@ -48,32 +48,16 @@ internal sealed class WriteTarget<P : Params> {
     data object AddTarget : WriteTarget<AddParams>() {
         override fun doExecute(project: Project, parameters: AddParams): TargetResult =
                 parameters.payload.name?.let { name ->
-                    val clmgr = project.getChangelistManager()
+                    val clmgr = project.getChangelistManagerEx()
                     if (clmgr.findChangeList(name) != null) {
                         return@let TargetResult.DuplicateChangelist
                     }
                     val list = clmgr.addChangeList(name, parameters.payload.comment)
                     if (parameters.payload.active != false) {
-                        clmgr.defaultChangeList = list
+                        clmgr.setDefaultChangeList(list, true)
                     }
                     TargetResult.Success
                 } ?: TargetResult.MissingParameter("name")
-    }
-
-    data object ActivateTarget : WriteTarget<ActivateParams>() {
-        override fun doExecute(project: Project, parameters: ActivateParams): TargetResult {
-            return if (parameters.default == true) {
-                LocalChangeList.getDefaultName()
-            } else {
-                parameters.name
-            }?.let { name ->
-                val clmgr = project.getChangelistManagerEx()
-                clmgr.findChangeList(name)?.let { list ->
-                    clmgr.setDefaultChangeList(list, true)
-                    return TargetResult.Success
-                } ?: TargetResult.ChangelistNotFound(name)
-            } ?: TargetResult.MissingParameter("name")
-        }
     }
 
     data object EditTarget : WriteTarget<EditParams>() {
@@ -85,12 +69,12 @@ internal sealed class WriteTarget<P : Params> {
 
     data object RenameEditTarget : WriteTarget<RenameEditParams>() {
         override fun doExecute(project: Project, parameters: RenameEditParams): TargetResult =
-                parameters.withChangelist(project) { name, clmgr, list ->
-                    parameters.payload.newName?.let { newName ->
+                parameters.payload.newName?.let { newName: String ->
+                    parameters.withChangelist(project) { name, clmgr, list ->
                         when (val result = applyUpdate(parameters.payload, clmgr, list, name)) {
                             null -> {
                                 if (clmgr.findChangeList(newName) != null) {
-                                    return@let TargetResult.DuplicateChangelist
+                                    return@withChangelist TargetResult.DuplicateChangelist
                                 }
                                 clmgr.editName(name, newName)
                                 TargetResult.Success
@@ -98,8 +82,8 @@ internal sealed class WriteTarget<P : Params> {
 
                             else -> result
                         }
-                    } ?: TargetResult.MissingParameter("new-name")
-                }
+                    }
+                } ?: TargetResult.MissingParameter("new-name")
     }
 
     internal fun applyUpdate(payload: ChangelistPayload, clmgr: ChangeListManagerEx, list: LocalChangeList, name: String): TargetResult? {
@@ -154,21 +138,15 @@ private fun LocalChangeList.write(write: JsonWriter) {
     write.endObject()
 }
 
-internal open class Params(val project: String?)
+internal open class Params(val project: String)
 
-internal open class ChangelistParams(project: String?, val name: String?) : Params(project) {
-    constructor(parameters: Map<String, String?>) : this(parameters.project, parameters.name)
-
-    private fun withName(f: (name: String) -> TargetResult): TargetResult =
-            name?.let { name -> return f(name) } ?: TargetResult.MissingParameter("name")
-
-    fun withChangelist(project: Project, f: (name: String, clmgr: ChangeListManagerEx, list: LocalChangeList) -> TargetResult): TargetResult =
-            withName { name ->
-                val clmgr = project.getChangelistManagerEx()
-                clmgr.findChangeList(name)?.let { list ->
-                    return@withName f(name, clmgr, list)
-                } ?: TargetResult.ChangelistNotFound(name)
-            }
+internal open class ChangelistParams(project: String, val name: String) : Params(project) {
+    fun withChangelist(project: Project, f: (name: String, clmgr: ChangeListManagerEx, list: LocalChangeList) -> TargetResult): TargetResult {
+        val clmgr = project.getChangelistManagerEx()
+        clmgr.findChangeList(name)?.let { list ->
+            return f(name, clmgr, list)
+        } ?: return TargetResult.ChangelistNotFound(name)
+    }
 }
 
 internal sealed interface ChangelistPayload {
@@ -176,30 +154,17 @@ internal sealed interface ChangelistPayload {
     val active: Boolean?
 }
 
-internal open class AddParams(project: String?, val payload: Payload) : Params(project) {
-    constructor(parameters: Map<String, String?>) : this(parameters.project,
-            Payload(parameters.name, parameters.comment, parameters.active))
+internal class ChangelistParamsWithPayload<P : ChangelistPayload>(project: String, name: String, val payload: P) : ChangelistParams(project, name)
 
+internal class AddParams(project: String, val payload: Payload) : Params(project) {
     data class Payload(val name: String?, override val comment: String?, override val active: Boolean?) : ChangelistPayload
 }
 
-internal class ActivateParams(parameters: Map<String, String?>) : ChangelistParams(parameters) {
-    var default: Boolean? = parameters.default
-}
+internal data class EditPayload(override val comment: String?, override val active: Boolean?) : ChangelistPayload
+internal typealias EditParams = ChangelistParamsWithPayload<EditPayload>
 
-internal class EditParams(project: String?, name: String?, val payload: Payload) : ChangelistParams(project, name) {
-    constructor(parameters: Map<String, String?>) :
-            this(parameters.project, parameters.name, Payload(parameters.comment, parameters.active))
-
-    data class Payload(override val comment: String?, override val active: Boolean?) : ChangelistPayload
-}
-
-internal class RenameEditParams(project: String?, name: String?, val payload: Payload) : ChangelistParams(project, name) {
-    constructor(parameters: Map<String, String?>) :
-            this(parameters.project, parameters.name, Payload(parameters.newName, parameters.comment, parameters.active))
-
-    data class Payload(@SerializedName("new-name") val newName: String?, override val comment: String?, override val active: Boolean?) : ChangelistPayload
-}
+internal typealias RenameEditParams = ChangelistParamsWithPayload<RenameEditPayload>
+internal data class RenameEditPayload(@SerializedName("new-name") val newName: String?, override val comment: String?, override val active: Boolean?) : ChangelistPayload
 
 private fun Project.getChangelistManager(): ChangeListManager = ChangeListManager.getInstance(this)
 private fun Project.getChangelistManagerEx(): ChangeListManagerEx = ChangeListManagerEx.getInstanceEx(this)
@@ -227,12 +192,12 @@ internal sealed interface TargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.delete.not.permitted")
     }
 
-    data object DuplicateChangelist: ErrorTargetResult {
+    data object DuplicateChangelist : ErrorTargetResult {
         override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.duplicate.not.permitted")
     }
 
-    data class ProjectNotFound(val name: String?, val message: String): ErrorTargetResult {
-        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.project.not.found", name?:"null", message)
+    data class ProjectNotFound(val name: String, val message: String) : ErrorTargetResult {
+        override fun getOrNull(): String = MyBundle.message("jb.protocol.changelist.project.not.found", name, message)
     }
 
     data class ChangelistNotFound(val name: String) : ErrorTargetResult {
