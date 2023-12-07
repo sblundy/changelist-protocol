@@ -70,7 +70,7 @@ class ChangelistRestService : RestService() {
             }
 
     private suspend fun executePOST(project: String, changelist: String, request: FullHttpRequest, context: ChannelHandlerContext): String? =
-            handleResult(request, WriteTarget.RenameEditTarget.execute(RenameEditParams(project, changelist, readPayload(request, RenameEditPayload::class))), context) {
+            handleResult(request, WriteTarget.EditTarget.execute(RenameEditParams(project, changelist, readPayload(request, RenameEditPayload::class))), context) {
                 sendEmptyResponse(HttpResponseStatus.NO_CONTENT, it)
             }
 

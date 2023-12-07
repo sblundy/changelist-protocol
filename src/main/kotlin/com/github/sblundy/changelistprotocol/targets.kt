@@ -4,6 +4,8 @@ import com.google.gson.annotations.SerializedName
 import com.google.gson.stream.JsonWriter
 import com.intellij.navigation.ProtocolOpenProjectResult
 import com.intellij.navigation.openProject
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.changes.ChangeListManager
 import com.intellij.openapi.vcs.changes.ChangeListManagerEx
@@ -41,8 +43,15 @@ internal sealed class ReadTarget<P : Params> {
 
 internal sealed class WriteTarget<P : Params> {
     suspend fun execute(parameters: P): TargetResult =
-            withProject(parameters) { project -> doExecute(project, parameters) }
+            withProject(parameters) { project -> doExecute(project, parameters).apply { if (this == TargetResult.Success) {
+                NotificationGroupManager.getInstance()
+                        .getNotificationGroup("Changelist Notification Group")
+                        .createNotification(successMessage(parameters), NotificationType.INFORMATION)
+                        .setIcon(Icons.Bot)
+                        .notify(project)
+            } } }
 
+    abstract fun successMessage(parameters: P): String
     abstract fun doExecute(project: Project, parameters: P): TargetResult
 
     data object AddTarget : WriteTarget<AddParams>() {
@@ -58,45 +67,47 @@ internal sealed class WriteTarget<P : Params> {
                     }
                     TargetResult.Success
                 } ?: TargetResult.MissingParameter("name")
+
+        override fun successMessage(parameters: AddParams): String = MyBundle.message("jb.protocol.changelist.success.add", parameters.payload.name?: "unknown")
     }
 
-    data object EditTarget : WriteTarget<EditParams>() {
-        override fun doExecute(project: Project, parameters: EditParams): TargetResult =
+    data object EditTarget : WriteTarget<ChangelistParamsWithPayload<out UpdatePayload>>() {
+        override fun doExecute(project: Project, parameters: ChangelistParamsWithPayload<out UpdatePayload>): TargetResult =
                 parameters.withChangelist(project) { name, clmgr, list ->
-                    RenameEditTarget.applyUpdate(parameters.payload, clmgr, list, name) ?: TargetResult.Success
-                }
-    }
-
-    data object RenameEditTarget : WriteTarget<RenameEditParams>() {
-        override fun doExecute(project: Project, parameters: RenameEditParams): TargetResult =
-                parameters.payload.newName?.let { newName: String ->
-                    parameters.withChangelist(project) { name, clmgr, list ->
-                        when (val result = applyUpdate(parameters.payload, clmgr, list, name)) {
-                            null -> {
-                                if (clmgr.findChangeList(newName) != null) {
-                                    return@withChangelist TargetResult.DuplicateChangelist
-                                }
-                                clmgr.editName(name, newName)
-                                TargetResult.Success
+                    when (val payload = parameters.payload) {
+                        is RenameEditPayload -> payload.newName?.let { newName: String ->
+                            if (clmgr.findChangeList(newName) != null) {
+                                return@withChangelist TargetResult.DuplicateChangelist
                             }
+                            applyUpdate(payload, clmgr, list, name).apply {
+                                if (this == TargetResult.Success) {
+                                    clmgr.editName(name, newName)
+                                }
+                            }
+                        } ?: TargetResult.MissingParameter("new-name")
 
-                            else -> result
-                        }
+                        else -> applyUpdate(payload, clmgr, list, name)
                     }
-                } ?: TargetResult.MissingParameter("new-name")
-    }
+                }
 
-    internal fun applyUpdate(payload: ChangelistPayload, clmgr: ChangeListManagerEx, list: LocalChangeList, name: String): TargetResult? {
-        if (payload.active == false) {
-            return TargetResult.DeactivateNotPermitted
+        override fun successMessage(parameters: ChangelistParamsWithPayload<out UpdatePayload>): String = when(parameters.payload) {
+            is RenameEditPayload -> MyBundle.message("jb.protocol.changelist.success.edit.rename", parameters.name, parameters.payload.newName ?: "unknown")
+            is ActivatePayload -> MyBundle.message("jb.protocol.changelist.success.activate", parameters.name)
+            is EditPayload -> MyBundle.message("jb.protocol.changelist.success.edit", parameters.name)
         }
-        if (payload.active != false) {
-            clmgr.setDefaultChangeList(list, true)
+
+        private fun applyUpdate(payload: ChangelistPayload, clmgr: ChangeListManagerEx, list: LocalChangeList, name: String): TargetResult {
+            if (payload.active == false) {
+                return TargetResult.DeactivateNotPermitted
+            }
+            if (payload.active != false) {
+                clmgr.setDefaultChangeList(list, true)
+            }
+            payload.comment?.let {
+                clmgr.editComment(name, it)
+            }
+            return TargetResult.Success
         }
-        payload.comment?.let {
-            clmgr.editComment(name, it)
-        }
-        return null
     }
 
     data object RemoveTarget : WriteTarget<ChangelistParams>() {
@@ -108,6 +119,8 @@ internal sealed class WriteTarget<P : Params> {
                     clmgr.removeChangeList(list)
                     return@withChangelist TargetResult.Success
                 }
+
+        override fun successMessage(parameters: ChangelistParams): String = MyBundle.message("jb.protocol.changelist.success.remove", parameters.name)
     }
 }
 
@@ -160,11 +173,19 @@ internal class AddParams(project: String, val payload: Payload) : Params(project
     data class Payload(val name: String?, override val comment: String?, override val active: Boolean?) : ChangelistPayload
 }
 
-internal data class EditPayload(override val comment: String?, override val active: Boolean?) : ChangelistPayload
+internal sealed interface UpdatePayload : ChangelistPayload
+
+internal data object ActivatePayload : UpdatePayload {
+    override val comment: String? = null
+    override val active: Boolean = true
+}
+
+internal data class EditPayload(override val comment: String?, override val active: Boolean?) : UpdatePayload
 internal typealias EditParams = ChangelistParamsWithPayload<EditPayload>
 
 internal typealias RenameEditParams = ChangelistParamsWithPayload<RenameEditPayload>
-internal data class RenameEditPayload(@SerializedName("new-name") val newName: String?, override val comment: String?, override val active: Boolean?) : ChangelistPayload
+
+internal data class RenameEditPayload(@SerializedName("new-name") val newName: String?, override val comment: String?, override val active: Boolean?) : UpdatePayload
 
 private fun Project.getChangelistManager(): ChangeListManager = ChangeListManager.getInstance(this)
 private fun Project.getChangelistManagerEx(): ChangeListManagerEx = ChangeListManagerEx.getInstanceEx(this)
