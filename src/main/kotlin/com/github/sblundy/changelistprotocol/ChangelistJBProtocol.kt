@@ -60,17 +60,15 @@ class ChangelistJBProtocol : JBProtocolCommand("changelist") {
             withProjectChangelist(parameters.applyIf(parameters.default == true) {
                 plus("name" to LocalChangeList.getDefaultName())
             }) { project: String, name: String ->
-                WriteTarget.EditTarget.execute(EditParams(project, name, EditPayload(null, true)))
+                WriteTarget.EditTarget.execute(ChangelistParamsWithPayload(project, name, ActivatePayload))
             }
 
     private suspend fun ChangelistJBProtocol.executeUpdate(parameters: Map<String, String>) =
-            parameters.newName?.let { it: String ->
-                withProjectChangelist(parameters) { project: String, name: String ->
-                    WriteTarget.RenameEditTarget.execute(RenameEditParams(project, name,
+            withProjectChangelist(parameters) { project: String, name: String ->
+                parameters.newName?.let { it: String ->
+                    WriteTarget.EditTarget.execute(RenameEditParams(project, name,
                             RenameEditPayload(it, parameters.comment, parameters.active)))
-                }
-            } ?: withProjectChangelist(parameters) { project: String, name: String ->
-                WriteTarget.EditTarget.execute(EditParams(project, name,
+                } ?: WriteTarget.EditTarget.execute(EditParams(project, name,
                         EditPayload(parameters.comment, parameters.active)))
             }
 
