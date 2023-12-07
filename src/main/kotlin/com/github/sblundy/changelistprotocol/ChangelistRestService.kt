@@ -17,36 +17,30 @@ class ChangelistRestService : RestService() {
     override fun getServiceName(): String = "changelist"
 
     override fun execute(urlDecoder: QueryStringDecoder, request: FullHttpRequest, context: ChannelHandlerContext): String? =
-            try {
-                runBlocking {
-                    val project = urlDecoder.pathSegment(2)
-                            ?: return@runBlocking sendEmptyResponse(HttpResponseStatus.NOT_FOUND, context)
+            runBlocking {
+                val project = urlDecoder.pathSegment(2)
+                        ?: return@runBlocking sendEmptyResponse(HttpResponseStatus.NOT_FOUND, context)
 
-                    return@runBlocking when (val changelist = urlDecoder.pathSegment(3)) {
-                        null -> {
-                            logger.debug("handling ${request.method()} $project")
-                            when (request.method()) {
-                                HttpMethod.GET -> executeGET(project, request, context)
-                                HttpMethod.POST -> executePOST(project, request, context)
-                                else -> sendEmptyResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, context)
-                            }
+                return@runBlocking when (val changelist = urlDecoder.pathSegment(3)) {
+                    null -> {
+                        logger.debug("handling ${request.method()} $project")
+                        when (request.method()) {
+                            HttpMethod.GET -> executeGET(project, request, context)
+                            HttpMethod.POST -> executePOST(project, request, context)
+                            else -> sendEmptyResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, context)
                         }
-                        else -> {
-                            logger.debug("handling ${request.method()} $project/$changelist")
-                            when (request.method()) {
-                                HttpMethod.GET -> executeGET(project, changelist, request, context)
-                                HttpMethod.POST -> executePOST(project, changelist, request, context)
-                                HttpMethod.PUT -> executePUT(project, changelist, request, context)
-                                HttpMethod.DELETE -> executeDELETE(project, changelist, request, context)
-                                else -> sendEmptyResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, context)
-                            }
+                    }
+                    else -> {
+                        logger.debug("handling ${request.method()} $project/$changelist")
+                        when (request.method()) {
+                            HttpMethod.GET -> executeGET(project, changelist, request, context)
+                            HttpMethod.POST -> executePOST(project, changelist, request, context)
+                            HttpMethod.PUT -> executePUT(project, changelist, request, context)
+                            HttpMethod.DELETE -> executeDELETE(project, changelist, request, context)
+                            else -> sendEmptyResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, context)
                         }
                     }
                 }
-            } catch (e: RuntimeException) {
-                logger.error("error handling ${request.uri()}", e)
-                sendStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR, false, context.channel())
-                throw e
             }
 
     override fun isMethodSupported(method: HttpMethod) = method == HttpMethod.POST || method == HttpMethod.GET || method == HttpMethod.PUT || method == HttpMethod.DELETE
@@ -104,10 +98,7 @@ class ChangelistRestService : RestService() {
             is TargetResult.ChangelistNotEnabled -> sendErrorResponse(request, result, HttpResponseStatus.FORBIDDEN, context)
             is TargetResult.ProjectNotFound -> sendErrorResponse(request, result, HttpResponseStatus.NOT_FOUND, context)
             is TargetResult.ChangelistNotFound -> sendErrorResponse(request, result, HttpResponseStatus.NOT_FOUND, context)
-            is TargetResult.MissingParameter -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
-            is TargetResult.DeactivateNotPermitted -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
-            is TargetResult.DeleteNotPermitted -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
-            is TargetResult.DuplicateChangelist -> sendErrorResponse(request, result, HttpResponseStatus.BAD_REQUEST, context)
+            else -> result.getOrNull()
         }
     }
 

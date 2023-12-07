@@ -8,6 +8,8 @@ import io.netty.handler.codec.http.*
 import io.netty.handler.codec.http.HttpResponseStatus.*
 import io.netty.handler.codec.string.StringDecoder
 import org.junit.Test
+import java.net.InetSocketAddress
+import java.net.SocketAddress
 
 import java.nio.charset.StandardCharsets
 
@@ -17,7 +19,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun list() {
         val (channel, result) = executeTest(HttpMethod.GET, "api/changelist/${project.name}")
 
-        assertNull(result)
+        assertTrue(result)
         val out = channel.readOutbound<FullHttpResponse>()
 
         assertEquals(OK, out.status())
@@ -33,7 +35,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun get() {
         val (channel, result) = executeTest(HttpMethod.GET, "api/changelist/${project.name}/$testChangeListName")
 
-        assertNull(result)
+        assertTrue(result)
         val out = channel.readOutbound<FullHttpResponse>()
 
         assertEquals(OK, out.status())
@@ -46,7 +48,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun add() {
         val (channel, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}","{\"name\":\"$testChangeListName\"}")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(CREATED, channel)
 
         assertNotNull(clm.findChangeList(testChangeListName))
@@ -57,7 +59,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun addRejectedOnNoName() {
         val (channel, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}","{}")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(BAD_REQUEST, channel)
     }
 
@@ -66,7 +68,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun activate() {
         val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName", "{\"active\":true}")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(NO_CONTENT, channel)
 
         assertEquals(true, clm.findChangeList(testChangeListName)?.isDefault)
@@ -77,7 +79,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun deactivateNotPermitted() {
         val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName", "{\"active\":false}")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(BAD_REQUEST, channel)
     }
 
@@ -86,7 +88,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun rename() {
         val (channel, result) = executeTest(HttpMethod.POST, "api/changelist/${project.name}/$testChangeListName","{\"new-name\":\"new-$testChangeListName\"}")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(NO_CONTENT, channel)
 
         assertNotNull(clm.findChangeList("new-$testChangeListName"))
@@ -98,7 +100,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun update() {
         val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}/$testChangeListName","{\"comment\":\"test\"}")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(NO_CONTENT, channel)
 
         assertEquals("test", clm.findChangeList(testChangeListName)?.comment)
@@ -109,7 +111,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun delete() {
         val (channel, result) = executeTest(HttpMethod.DELETE, "api/changelist/${project.name}/$testChangeListName")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(NO_CONTENT, channel)
 
         assertNull(clm.findChangeList(testChangeListName))
@@ -120,7 +122,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun deleteFailsIfActive() {
         val (channel, result) = executeTest(HttpMethod.DELETE, "api/changelist/${project.name}/$testChangeListName")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(BAD_REQUEST, channel)
 
         assertNotNull(clm.findChangeList(testChangeListName))
@@ -131,7 +133,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun projectNotFound() {
         val (channel, result) = executeTest(HttpMethod.GET, "api/changelist/not-${project.name}/$testChangeListName")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(NOT_FOUND, channel)
     }
 
@@ -139,7 +141,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun changelistNotFound() {
         val (channel, result) = executeTest(HttpMethod.GET, "api/changelist/${project.name}/$testChangeListName")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(NOT_FOUND, channel)
     }
 
@@ -147,7 +149,7 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun apiRoot() {
         val (channel, result) = executeTest(HttpMethod.GET, "api/changelist/")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(NOT_FOUND, channel)
     }
 
@@ -156,21 +158,29 @@ class ChangelistRestServiceTest: ChangelistTestCase() {
     fun changelistsEndpointHasNoPut() {
         val (channel, result) = executeTest(HttpMethod.PUT, "api/changelist/${project.name}","{\"comment\":\"test\"}")
 
-        assertNull(result)
+        assertTrue(result)
         assertStatus(METHOD_NOT_ALLOWED, channel)
     }
 
-    private fun executeTest(method: HttpMethod, uri: String): Pair<EmbeddedChannel, String?> {
-        val channel = EmbeddedChannel(StringDecoder(StandardCharsets.UTF_8))
-        val result = ChangelistRestService().execute(QueryStringDecoder(uri),
+    private fun executeTest(method: HttpMethod, uri: String): Pair<EmbeddedChannel, Boolean> {
+        val channel = object : EmbeddedChannel(StringDecoder(StandardCharsets.UTF_8)) {
+            override fun remoteAddress(): SocketAddress {
+                return InetSocketAddress(1234)
+            }
+        }
+        val result = ChangelistRestService().process(QueryStringDecoder(uri),
                 DefaultFullHttpRequest(HttpVersion.HTTP_1_1, method, uri),
                 channel.pipeline().firstContext())
         return Pair(channel, result)
     }
 
-    private fun executeTest(method: HttpMethod, uri: String, body: String): Pair<EmbeddedChannel, String?> {
-        val channel = EmbeddedChannel(StringDecoder(StandardCharsets.UTF_8))
-        val result = ChangelistRestService().execute(QueryStringDecoder(uri),
+    private fun executeTest(method: HttpMethod, uri: String, body: String): Pair<EmbeddedChannel, Boolean> {
+        val channel = object : EmbeddedChannel(StringDecoder(StandardCharsets.UTF_8)) {
+            override fun remoteAddress(): SocketAddress {
+                return InetSocketAddress(1234)
+            }
+        }
+        val result = ChangelistRestService().process(QueryStringDecoder(uri),
                 DefaultFullHttpRequest(HttpVersion.HTTP_1_1, method, uri, Unpooled.copiedBuffer(body, StandardCharsets.UTF_8)),
                 channel.pipeline().firstContext())
         return Pair(channel, result)
