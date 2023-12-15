@@ -8,23 +8,10 @@
 
 ### Added
 
-- `POST /changelist/{project}/{name}` to correctly handle rename semantics
-- 400 responses where appropriate to OpenAPI doc
-- X-Callback-URL support. Invokes `x-success` or `x-error` if provided
-- Project Icon
 - Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
 - `changelist` URL Scheme handler
 - `/api/changelist/` REST handler
-
-### Changed
-
-- `PUT /changelist/{project}/{name}` no longer supports renaming a changelist
-- README improvements
-
-### Fixed
-
-- Return 400 when new or renamed changelist will have same name as another existing one
-- Linter warning
+- X-Callback-URL support. Invokes `x-success` or `x-error` if provided
 
 ## [0.1.0-beta.3] - 2023-12-07
 
