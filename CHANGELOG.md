@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2023-12-15
+
+### Added
+
+- `POST /changelist/{project}/{name}` to correctly handle rename semantics
+- 400 responses where appropriate to OpenAPI doc
+- X-Callback-URL support. Invokes `x-success` or `x-error` if provided
+- Project Icon
+- Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
+- `changelist` URL Scheme handler
+- `/api/changelist/` REST handler
+
+### Changed
+
+- `PUT /changelist/{project}/{name}` no longer supports renaming a changelist
+- README improvements
+
+### Fixed
+
+- Return 400 when new or renamed changelist will have same name as another existing one
+- Linter warning
+
 ## [0.1.0-beta.3] - 2023-12-07
 
 ### Added
@@ -45,6 +67,8 @@
 - `changelist` URL Scheme handler
 - `/api/changelist/` REST handler
 
-[Unreleased]: https://github.com/sblundy/changelist-protocol/compare/v0.1.0-beta.2...HEAD
-[0.1.0-beta.1]: https://github.com/sblundy/changelist-protocol/commits/v0.1.0-beta.1
+[Unreleased]: https://github.com/sblundy/changelist-protocol/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/sblundy/changelist-protocol/compare/v0.1.0-beta.3...v0.1.0
 [0.1.0-beta.2]: https://github.com/sblundy/changelist-protocol/compare/v0.1.0-beta.1...v0.1.0-beta.2
+[0.1.0-beta.1]: https://github.com/sblundy/changelist-protocol/commits/v0.1.0-beta.1
+[0.1.0-beta.3]: https://github.com/sblundy/changelist-protocol/compare/v0.1.0-beta.2...v0.1.0-beta.3
