@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2023-12-07
+
 ### Added
 
 - `POST /changelist/{project}/{name}` to correctly handle rename semantics
