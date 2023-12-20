@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Plugin previously required the IDE to be restarted on update. Shouldn't going forward
+
 ## [0.1.0] - 2023-12-15
 
 ### Added
