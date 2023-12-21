@@ -88,6 +88,10 @@ jobs:
           git config user.name "GitHub Action"
 
           git checkout -b $BRANCH
+          if git diff-index --quiet HEAD; then
+            echo 'Nothing to commit'
+            exit
+          fi
           git commit -am "Changelog update - $VERSION"
           git push --set-upstream origin $BRANCH
           
