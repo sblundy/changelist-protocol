@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Updated
+
+- IDE support to 2024.2.*
+- To IntelliJ Platform Gradle Plugin v2
+
+## [0.1.1] - 2024-03-03
+
 ### Fixed
 
 - Plugin previously required the IDE to be restarted on update. Shouldn't going forward
